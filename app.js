@@ -1,7 +1,4 @@
-// Google OAuth の設定
-// Google Cloud Console で OAuth 2.0 クライアント ID を取得し、下記の値を置き換えてください。
-// https://console.cloud.google.com/ → 「APIとサービス」→「認証情報」→「OAuth 2.0 クライアント ID」
-const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID";
+const GOOGLE_CLIENT_ID = window.APP_CONFIG?.GOOGLE_CLIENT_ID || "";
 const YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3";
 
 const videos = [
@@ -480,8 +477,8 @@ function renderLoginState() {
 }
 
 function requestGoogleLogin() {
-  if (GOOGLE_CLIENT_ID === "YOUR_GOOGLE_CLIENT_ID") {
-    setAssistMessage("Google クライアント ID が設定されていません");
+  if (!GOOGLE_CLIENT_ID) {
+    setAssistMessage("GOOGLE_CLIENT_ID が設定されていません");
     return;
   }
   if (!googleTokenClient) {
