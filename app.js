@@ -8,9 +8,11 @@ const videos = [
   { id: "jNQXAC9IVRw", title: "Me at the zoo", channel: "jawed", category: "日常" },
   { id: "ysz5S6PUM-U", title: "おすすめプレイリスト", channel: "YouTube Viewers", category: "学び" },
   { id: "2Vv-BfVoq4g", title: "Perfect", channel: "Ed Sheeran", category: "音楽" },
-  { id: "fJ9rUzIMcZQ", title: "Bohemian Rhapsody", channel: "Queen Official", category: "音楽" },
+  { id: "JGwWNGJdvx8", title: "Shape of You", channel: "Ed Sheeran", category: "音楽" },
+  { id: "lp-EO5I60KA", title: "Thinking Out Loud", channel: "Ed Sheeran", category: "音楽" },
   { id: "LXb3EKWsInQ", title: "自然の風景", channel: "National Geographic", category: "自然" },
-  { id: "hTWKbfoikeg", title: "Smells Like Teen Spirit", channel: "NirvanaVEVO", category: "音楽" },
+  { id: "eVTXPUF4Oz4", title: "In the End", channel: "Linkin Park", category: "音楽" },
+  { id: "8sgycukafqQ", title: "What I've Done", channel: "Linkin Park", category: "音楽" },
   { id: "3fumBcKC6RE", title: "ゲーム実況ハイライト", channel: "Nintendo of America", category: "ゲーム" },
   { id: "1La4QzGeaaQ", title: "宇宙から見た地球", channel: "NASA", category: "ニュース" }
 ];
@@ -54,15 +56,7 @@ window.onYouTubeIframeAPIReady = function onYouTubeIframeAPIReady() {
   player = new YT.Player("player", {
     width: "100%",
     height: "100%",
-    playerVars: {
-      autoplay: 1,
-      controls: 1,
-      playsinline: 1,
-      rel: 0,
-      cc_lang_pref: "ja",
-      cc_load_policy: 1,
-      origin: window.location.origin
-    },
+    playerVars: buildPlayerVars(),
     events: {
       onReady: handlePlayerReady,
       onStateChange: handlePlayerStateChange
@@ -74,7 +68,10 @@ function handlePlayerReady() {
   applyVolume();
   applyCaptions();
   const initialVideo = resolveInitialVideo();
-  const knownIndex = state.historyIds.indexOf(initialVideo.id);
+  const knownIndex =
+    state.historyIds[state.historyIndex] === initialVideo.id
+      ? state.historyIndex
+      : state.historyIds.indexOf(initialVideo.id);
   queueVideo(initialVideo, {
     recordHistory: knownIndex === -1,
     historyIndexOverride: knownIndex === -1 ? null : knownIndex,
@@ -406,6 +403,23 @@ function getTopCategory() {
 
 function thumbnailUrl(videoId) {
   return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+}
+
+function buildPlayerVars() {
+  const playerVars = {
+    autoplay: 1,
+    controls: 1,
+    playsinline: 1,
+    rel: 0,
+    cc_lang_pref: "ja",
+    cc_load_policy: state.captionsEnabled ? 1 : 0
+  };
+
+  if (window.location.protocol.startsWith("http")) {
+    playerVars.origin = window.location.origin;
+  }
+
+  return playerVars;
 }
 
 function loadState() {
