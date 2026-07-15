@@ -44,29 +44,26 @@ const elements = {
 };
 
 const state = loadState();
-let player;
+const player = document.getElementById("player");
+let playerLoaded = false;
 let currentVideo = null;
 let previewTimer = null;
 let lastNavigation = { type: null, time: 0 };
 
 wireEvents();
 renderStaticState();
+setupPlayer();
 
-window.onYouTubeIframeAPIReady = function onYouTubeIframeAPIReady() {
-  player = new YT.Player("player", {
-    width: "100%",
-    height: "100%",
-    playerVars: buildPlayerVars(),
-    events: {
-      onReady: handlePlayerReady,
-      onStateChange: handlePlayerStateChange
+function setupPlayer() {
+  player.addEventListener("load", function () {
+    if (!player.src) {
+      return;
     }
+    player.contentWindow.postMessage(JSON.stringify({ event: "listening" }), "*");
   });
-};
 
-function handlePlayerReady() {
-  applyVolume();
-  applyCaptions();
+  window.addEventListener("message", onYouTubeMessage);
+
   const initialVideo = resolveInitialVideo();
   const knownIndex =
     state.historyIds[state.historyIndex] === initialVideo.id
@@ -79,19 +76,70 @@ function handlePlayerReady() {
   });
 }
 
-function handlePlayerStateChange(event) {
-  if (event.data === YT.PlayerState.PLAYING) {
+function onYouTubeMessage(event) {
+  if (event.origin !== "https://www.youtube.com") {
+    return;
+  }
+
+  let data;
+  try {
+    data = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
+  } catch (error) {
+    return;
+  }
+
+  if (data.event === "onReady") {
+    playerLoaded = true;
+    sendPlayerCommand("addEventListener", ["onStateChange"]);
+    applyVolume();
+    applyCaptions();
+    return;
+  }
+
+  if (data.event === "onStateChange") {
+    handlePlayerStateChange(data.info);
+  }
+}
+
+function handlePlayerStateChange(stateCode) {
+  if (stateCode === 1) {
     state.isPlaying = true;
     elements.playToggle.textContent = "⏸️停止";
     saveState();
     return;
   }
 
-  if (event.data === YT.PlayerState.PAUSED || event.data === YT.PlayerState.ENDED) {
+  if (stateCode === 2 || stateCode === 0) {
     state.isPlaying = false;
     elements.playToggle.textContent = "▶️再生";
     saveState();
   }
+}
+
+function sendPlayerCommand(func, args) {
+  if (!playerLoaded) {
+    return;
+  }
+
+  player.contentWindow.postMessage(
+    JSON.stringify({ event: "command", func, args: args || [] }),
+    "https://www.youtube.com"
+  );
+}
+
+function loadYouTubeVideo(videoId) {
+  playerLoaded = false;
+  const params = new URLSearchParams({
+    enablejsapi: 1,
+    autoplay: 1,
+    controls: 1,
+    playsinline: 1,
+    rel: 0,
+    cc_lang_pref: "ja",
+    cc_load_policy: state.captionsEnabled ? 1 : 0,
+    fs: 1
+  });
+  player.src = `https://www.youtube.com/embed/${videoId}?${params}`;
 }
 
 function wireEvents() {
@@ -112,18 +160,17 @@ function renderStaticState() {
 }
 
 function togglePlayback() {
-  if (!player || !currentVideo) {
+  if (!currentVideo) {
     return;
   }
 
-  const status = player.getPlayerState();
-  if (status === YT.PlayerState.PLAYING) {
-    player.pauseVideo();
+  if (state.isPlaying) {
+    sendPlayerCommand("pauseVideo");
     setAssistMessage("動画を止めました");
     return;
   }
 
-  player.playVideo();
+  sendPlayerCommand("playVideo");
   setAssistMessage("動画を再生しています");
 }
 
@@ -137,9 +184,7 @@ function changeVolume(delta) {
 
 function applyVolume() {
   elements.volumeLevel.textContent = String(state.volume);
-  if (player && typeof player.setVolume === "function") {
-    player.setVolume(Math.round((state.volume / 9) * 100));
-  }
+  sendPlayerCommand("setVolume", [Math.round((state.volume / 9) * 100)]);
 }
 
 function toggleCaptions() {
@@ -151,22 +196,17 @@ function toggleCaptions() {
 }
 
 function applyCaptions() {
-  if (!player || typeof player.loadModule !== "function") {
+  if (!playerLoaded) {
     return;
   }
 
-  try {
-    if (state.captionsEnabled) {
-      player.loadModule("captions");
-      player.setOption("captions", "track", { languageCode: "ja" });
-      player.setOption("captions", "reload", true);
-      return;
-    }
-
-    player.unloadModule("captions");
-  } catch (error) {
-    setAssistMessage("字幕は動画ごとの対応状況により変わります");
+  if (state.captionsEnabled) {
+    sendPlayerCommand("loadModule", ["cc"]);
+    sendPlayerCommand("setOption", ["cc", "track", { languageCode: "ja" }]);
+    return;
   }
+
+  sendPlayerCommand("unloadModule", ["cc"]);
 }
 
 function toggleLike() {
@@ -258,7 +298,7 @@ function startVideo(video, options) {
   updateTrendMessage();
   saveState();
 
-  player.loadVideoById(video.id);
+  loadYouTubeVideo(video.id);
   applyVolume();
   applyCaptions();
 }
@@ -405,22 +445,7 @@ function thumbnailUrl(videoId) {
   return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
 }
 
-function buildPlayerVars() {
-  const playerVars = {
-    autoplay: 1,
-    controls: 1,
-    playsinline: 1,
-    rel: 0,
-    cc_lang_pref: "ja",
-    cc_load_policy: state.captionsEnabled ? 1 : 0
-  };
 
-  if (window.location.protocol.startsWith("http")) {
-    playerVars.origin = window.location.origin;
-  }
-
-  return playerVars;
-}
 
 function loadState() {
   try {
