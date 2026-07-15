@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>やさしい YouTube プレイヤー</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="player-section" aria-label="動画プレイヤー">
+        <div class="player-frame">
+          <iframe id="player" class="player-embed" title="YouTube プレイヤー" allow="autoplay; fullscreen" allowfullscreen></iframe>
+          <div id="previewOverlay" class="preview-overlay hidden" aria-live="polite">
+            <img id="previewImage" class="preview-image" alt="次に流れる動画のサムネイル" />
+            <div class="preview-copy">
+              <p class="preview-label">まもなく再生します</p>
+              <h2 id="previewTitle"></h2>
+              <p id="previewMeta"></p>
+            </div>
+          </div>
+          <div class="player-info">
+            <p id="channelBadge" class="badge">読み込み中...</p>
+            <h1 id="videoTitle" class="video-title">やさしい YouTube プレイヤー</h1>
+            <p id="videoMeta" class="video-meta">動画を準備しています</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="control-section" aria-label="操作ボタン">
+        <div class="status-card">
+          <p id="assistMessage" class="assist-message">動画を選んでいます</p>
+          <p id="trendMessage" class="trend-message">見やすい大きなボタンで操作できます。</p>
+        </div>
+
+        <div class="controls-row">
+          <button id="playToggle" class="control-button primary-button" type="button">▶️再生</button>
+
+          <div class="control-button volume-panel" aria-label="音量操作">
+            <span class="panel-title">🎵音量</span>
+            <div class="volume-row">
+              <button id="volumeDown" class="mini-button" type="button" aria-label="音量を下げる">➖</button>
+              <span id="volumeLevel" class="volume-level">5</span>
+              <button id="volumeUp" class="mini-button" type="button" aria-label="音量を上げる">➕</button>
+            </div>
+          </div>
+
+          <button id="captionToggle" class="control-button" type="button">💬字幕なし</button>
+          <button id="likeToggle" class="control-button" type="button">❤️好み</button>
+          <button id="prevButton" class="control-button" type="button">⏪前</button>
+          <button id="nextButton" class="control-button primary-button" type="button">次📺</button>
+        </div>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

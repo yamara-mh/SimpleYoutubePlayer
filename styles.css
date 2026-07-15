@@ -1,0 +1,261 @@
+:root {
+  color-scheme: light;
+  font-family: "Hiragino Sans", "Yu Gothic", sans-serif;
+  background: #f6f8fb;
+  color: #132238;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: linear-gradient(180deg, #f6f8fb 0%, #dfe9f8 100%);
+}
+
+button {
+  font: inherit;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-rows: 80vh 20vh;
+  min-height: 100vh;
+}
+
+.player-section {
+  padding: 1rem 1rem 0;
+}
+
+.player-frame {
+  position: relative;
+  height: 100%;
+  border-radius: 28px;
+  overflow: hidden;
+  background: #0c1524;
+  box-shadow: 0 24px 60px rgba(16, 38, 66, 0.2);
+}
+
+.player-embed,
+.player-embed iframe {
+  border: none;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.preview-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: minmax(220px, 34%) 1fr;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 2rem;
+  background: rgba(7, 16, 31, 0.88);
+  color: #fff;
+  z-index: 2;
+}
+
+.preview-overlay.hidden {
+  display: none;
+}
+
+.preview-image {
+  width: 100%;
+  max-height: 100%;
+  object-fit: cover;
+  border-radius: 22px;
+  border: 4px solid rgba(255, 255, 255, 0.2);
+}
+
+.preview-label {
+  margin: 0 0 0.75rem;
+  font-size: 1.2rem;
+}
+
+.preview-copy h2 {
+  margin: 0 0 1rem;
+  font-size: clamp(1.8rem, 4vw, 3.2rem);
+  line-height: 1.2;
+}
+
+.preview-copy p {
+  margin: 0;
+  font-size: clamp(1rem, 2vw, 1.5rem);
+}
+
+.player-info {
+  position: absolute;
+  left: 1.5rem;
+  right: 1.5rem;
+  bottom: 1.5rem;
+  z-index: 1;
+  padding: 1rem 1.25rem;
+  border-radius: 24px;
+  background: rgba(5, 12, 24, 0.68);
+  color: #fff;
+  backdrop-filter: blur(12px);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.75rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  font-size: 1rem;
+}
+
+.video-title {
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.6rem, 3vw, 2.5rem);
+}
+
+.video-meta {
+  margin: 0;
+  font-size: clamp(1rem, 2vw, 1.3rem);
+}
+
+.control-section {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 0.9rem;
+  padding: 0.6rem 1rem 1rem;
+}
+
+.status-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1.2rem;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 10px 28px rgba(16, 38, 66, 0.12);
+}
+
+.assist-message,
+.trend-message {
+  margin: 0;
+  font-size: clamp(1rem, 2vw, 1.3rem);
+  font-weight: 700;
+}
+
+.trend-message {
+  color: #33527a;
+  text-align: right;
+}
+
+.controls-row {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.9rem;
+  min-height: 0;
+}
+
+.control-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  padding: 0.9rem 0.8rem;
+  border: none;
+  border-radius: 24px;
+  background: #ffffff;
+  color: #102038;
+  font-size: clamp(1.4rem, 2vw, 2rem);
+  font-weight: 800;
+  box-shadow: 0 14px 30px rgba(16, 38, 66, 0.15);
+}
+
+.primary-button {
+  background: linear-gradient(180deg, #ff606d 0%, #e83d56 100%);
+  color: #fff;
+}
+
+.control-button:focus-visible,
+.mini-button:focus-visible {
+  outline: 4px solid #1f72ff;
+  outline-offset: 4px;
+}
+
+.volume-panel {
+  flex-direction: column;
+  gap: 0.65rem;
+  padding-inline: 1rem;
+}
+
+.panel-title {
+  font-size: clamp(1.1rem, 1.8vw, 1.5rem);
+}
+
+.volume-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+}
+
+.mini-button {
+  border: none;
+  border-radius: 18px;
+  min-width: 3.2rem;
+  min-height: 3.2rem;
+  background: #edf3fb;
+  font-size: 1.8rem;
+  font-weight: 800;
+}
+
+.volume-level {
+  text-align: center;
+  font-size: clamp(1.8rem, 2.4vw, 2.4rem);
+}
+
+@media (max-width: 1200px) {
+  .app-shell {
+    grid-template-rows: minmax(60vh, 1fr) auto;
+  }
+
+  .control-section {
+    padding-bottom: 1rem;
+  }
+
+  .controls-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .player-section {
+    padding: 0.5rem 0.5rem 0;
+  }
+
+  .preview-overlay {
+    grid-template-columns: 1fr;
+    padding: 1.2rem;
+  }
+
+  .status-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .trend-message {
+    text-align: left;
+  }
+
+  .controls-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .control-button {
+    min-height: 5.75rem;
+    font-size: 1.35rem;
+  }
+}
