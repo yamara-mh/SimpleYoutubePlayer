@@ -154,8 +154,8 @@ function wireEvents() {
 
 function renderStaticState() {
   elements.volumeLevel.textContent = String(state.volume);
-  elements.captionToggle.textContent = state.captionsEnabled ? "💬字幕なし" : "💬字幕あり";
-  elements.playToggle.textContent = state.isPlaying ? "⏸️停止" : "▶️再生";
+  elements.captionToggle.textContent = state.captionsEnabled ? "💬<br>字幕❌" : "💬<br>字幕⭕️";
+  elements.playToggle.textContent = state.isPlaying ? "⏸️<br>停止" : "▶️<br>再生";
   updateTrendMessage();
 }
 
@@ -310,7 +310,7 @@ function renderCurrentVideo() {
 
   const liked = state.likedVideoIds.includes(currentVideo.id);
   const subscribed = state.subscribedChannels.includes(currentVideo.channel);
-  elements.likeToggle.textContent = liked ? "💖取消" : "❤️好み";
+  elements.likeToggle.textContent = liked ? "💖<br>取消" : "❤️<br>好み";
   elements.videoTitle.textContent = currentVideo.title;
   elements.videoMeta.textContent = `${currentVideo.channel} ・ ${currentVideo.category}`;
   elements.channelBadge.textContent = subscribed ? `📺 登録済み: ${currentVideo.channel}` : `📺 ${currentVideo.channel}`;
