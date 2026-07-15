@@ -28,11 +28,6 @@ const elements = {
   previewImage: document.getElementById("previewImage"),
   previewTitle: document.getElementById("previewTitle"),
   previewMeta: document.getElementById("previewMeta"),
-  channelBadge: document.getElementById("channelBadge"),
-  videoTitle: document.getElementById("videoTitle"),
-  videoMeta: document.getElementById("videoMeta"),
-  assistMessage: document.getElementById("assistMessage"),
-  trendMessage: document.getElementById("trendMessage"),
   playToggle: document.getElementById("playToggle"),
   volumeDown: document.getElementById("volumeDown"),
   volumeUp: document.getElementById("volumeUp"),
@@ -154,9 +149,8 @@ function wireEvents() {
 
 function renderStaticState() {
   elements.volumeLevel.textContent = String(state.volume);
-  elements.captionToggle.textContent = state.captionsEnabled ? "💬<br>字幕❌" : "💬<br>字幕⭕️";
-  elements.playToggle.textContent = state.isPlaying ? "⏸️<br>停止" : "▶️<br>再生";
-  updateTrendMessage();
+  elements.captionToggle.innerHTML = state.captionsEnabled ? "💬<br>字幕❌" : "💬<br>字幕⭕️";
+  elements.playToggle.innerHTML = state.isPlaying ? "⏸️<br>停止" : "▶️<br>再生";
 }
 
 function togglePlayback() {
@@ -309,33 +303,12 @@ function renderCurrentVideo() {
   }
 
   const liked = state.likedVideoIds.includes(currentVideo.id);
-  const subscribed = state.subscribedChannels.includes(currentVideo.channel);
-  elements.likeToggle.textContent = liked ? "💖<br>取消" : "❤️<br>好み";
-  elements.videoTitle.textContent = currentVideo.title;
-  elements.videoMeta.textContent = `${currentVideo.channel} ・ ${currentVideo.category}`;
-  elements.channelBadge.textContent = subscribed ? `📺 登録済み: ${currentVideo.channel}` : `📺 ${currentVideo.channel}`;
+  elements.likeToggle.innerHTML = liked ? "💖<br>取消" : "❤️<br>好み";
 }
 
-function updateTrendMessage() {
-  const favoriteGenre = getTopCategory();
-  const likedChannels = Object.keys(state.likedChannels).filter((channel) => state.likedChannels[channel] > 0);
+function updateTrendMessage() {}
 
-  if (likedChannels.length > 0) {
-    elements.trendMessage.textContent = `好み: ${likedChannels.slice(0, 2).join("、")}`;
-    return;
-  }
-
-  if (favoriteGenre) {
-    elements.trendMessage.textContent = `よく見るジャンル: ${favoriteGenre}`;
-    return;
-  }
-
-  elements.trendMessage.textContent = "見やすい大きなボタンで操作できます。";
-}
-
-function setAssistMessage(text) {
-  elements.assistMessage.textContent = text;
-}
+function setAssistMessage(_text) {}
 
 function showPreview(video, assistText) {
   elements.previewImage.src = thumbnailUrl(video.id);

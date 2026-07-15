@@ -87,68 +87,8 @@ button {
   font-size: clamp(1rem, 2vw, 1.5rem);
 }
 
-.player-info {
-  position: absolute;
-  left: 1.5rem;
-  right: 1.5rem;
-  bottom: 1.5rem;
-  z-index: 1;
-  padding: 1rem 1.25rem;
-  border-radius: 24px;
-  background: rgba(5, 12, 24, 0.68);
-  color: #fff;
-  backdrop-filter: blur(12px);
-}
-
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin: 0 0 0.75rem;
-  padding: 0.4rem 0.8rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.14);
-  font-size: 1rem;
-}
-
-.video-title {
-  margin: 0 0 0.5rem;
-  font-size: clamp(1.6rem, 3vw, 2.5rem);
-}
-
-.video-meta {
-  margin: 0;
-  font-size: clamp(1rem, 2vw, 1.3rem);
-}
-
 .control-section {
-  display: grid;
-  grid-template-rows: auto 1fr;
-  gap: 0.9rem;
   padding: 0.6rem 1rem 1rem;
-}
-
-.status-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.9rem 1.2rem;
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.88);
-  box-shadow: 0 10px 28px rgba(16, 38, 66, 0.12);
-}
-
-.assist-message,
-.trend-message {
-  margin: 0;
-  font-size: clamp(1rem, 2vw, 1.3rem);
-  font-weight: 700;
-}
-
-.trend-message {
-  color: #33527a;
-  text-align: right;
 }
 
 .controls-row {
@@ -239,15 +179,6 @@ button {
   .preview-overlay {
     grid-template-columns: 1fr;
     padding: 1.2rem;
-  }
-
-  .status-card {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .trend-message {
-    text-align: left;
   }
 
   .controls-row {
