@@ -104,7 +104,7 @@ function onYouTubeMessage(event) {
 function handlePlayerStateChange(stateCode) {
   if (stateCode === 1) {
     state.isPlaying = true;
-    elements.playToggle.textContent = "⏸️停止";
+    elements.playToggle.textContent = "⏸️止める";
     saveState();
     return;
   }
