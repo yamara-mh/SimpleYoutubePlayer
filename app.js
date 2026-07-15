@@ -55,6 +55,8 @@ let previewTimer = null;
 let lastNavigation = { type: null, time: 0 };
 let googleTokenClient = null;
 let googleAccessToken = null;
+let captionTimer = null;
+let gisRetryTimer = null;
 
 wireEvents();
 renderStaticState();
@@ -209,9 +211,18 @@ function applyCaptions() {
     return;
   }
 
+  clearTimeout(captionTimer);
+
   if (state.captionsEnabled) {
     sendPlayerCommand("loadModule", ["cc"]);
-    sendPlayerCommand("setOption", ["cc", "track", { languageCode: "ja" }]);
+    // Wait for the cc module to finish initializing before setting the track
+    captionTimer = setTimeout(function () {
+      // Prefer Japanese captions; auto-translate other-language captions to Japanese
+      sendPlayerCommand("setOption", ["cc", "track", {
+        languageCode: "ja",
+        translationLanguage: { languageCode: "ja" }
+      }]);
+    }, 300);
     return;
   }
 
@@ -486,8 +497,16 @@ function renderLoginState() {
 function requestGoogleLogin() {
   if (!window.google?.accounts?.oauth2) {
     setAssistMessage("Googleログインの準備中です。少し待ってからお試しください");
+    // Retry once automatically after the GIS library finishes loading
+    clearTimeout(gisRetryTimer);
+    gisRetryTimer = setTimeout(function () {
+      if (window.google?.accounts?.oauth2) {
+        requestGoogleLogin();
+      }
+    }, 3000);
     return;
   }
+  clearTimeout(gisRetryTimer);
   if (!GOOGLE_CLIENT_ID) {
     setAssistMessage("GOOGLE_CLIENT_ID が設定されていません");
     return;
@@ -511,8 +530,12 @@ function requestGoogleLogout() {
     setAssistMessage("現在ログインしていません");
     return;
   }
+  clearTimeout(gisRetryTimer);
   google.accounts.oauth2.revoke(googleAccessToken, () => {
     googleAccessToken = null;
+    googleTokenClient = null;
+    state.subscribedChannels = [];
+    saveState();
     elements.userDisplayName.textContent = "";
     renderLoginState();
     setAssistMessage("ログアウトしました");
