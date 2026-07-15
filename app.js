@@ -43,7 +43,8 @@ const elements = {
   userSection: document.getElementById("userSection"),
   loginButton: document.getElementById("loginButton"),
   logoutButton: document.getElementById("logoutButton"),
-  userDisplayName: document.getElementById("userDisplayName")
+  userDisplayName: document.getElementById("userDisplayName"),
+  assistMessage: document.getElementById("assistMessage")
 };
 
 const state = loadState();
@@ -162,7 +163,8 @@ function wireEvents() {
 
 function renderStaticState() {
   elements.volumeLevel.textContent = String(state.volume);
-  elements.captionToggle.innerHTML = state.captionsEnabled ? "💬<br>字幕❌" : "💬<br>字幕⭕️";
+  elements.captionToggle.innerHTML = state.captionsEnabled ? "💬<br>字幕ON" : "💬<br>字幕OFF";
+  elements.captionToggle.setAttribute("aria-pressed", String(state.captionsEnabled));
   elements.playToggle.innerHTML = state.isPlaying ? "⏸️<br>停止" : "▶️<br>再生";
 }
 
@@ -321,7 +323,12 @@ function renderCurrentVideo() {
 
 function updateTrendMessage() {}
 
-function setAssistMessage(_text) {}
+function setAssistMessage(text) {
+  if (!elements.assistMessage) {
+    return;
+  }
+  elements.assistMessage.textContent = text || "";
+}
 
 function showPreview(video, assistText) {
   elements.previewImage.src = thumbnailUrl(video.id);
@@ -477,6 +484,10 @@ function renderLoginState() {
 }
 
 function requestGoogleLogin() {
+  if (!window.google?.accounts?.oauth2) {
+    setAssistMessage("Googleログインの準備中です。少し待ってからお試しください");
+    return;
+  }
   if (!GOOGLE_CLIENT_ID) {
     setAssistMessage("GOOGLE_CLIENT_ID が設定されていません");
     return;
@@ -492,7 +503,12 @@ function requestGoogleLogin() {
 }
 
 function requestGoogleLogout() {
+  if (!window.google?.accounts?.oauth2) {
+    setAssistMessage("Googleログアウトの準備中です。少し待ってからお試しください");
+    return;
+  }
   if (!googleAccessToken) {
+    setAssistMessage("現在ログインしていません");
     return;
   }
   google.accounts.oauth2.revoke(googleAccessToken, () => {
