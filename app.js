@@ -17,6 +17,529 @@ const videos = [
   { id: "1La4QzGeaaQ", title: "宇宙から見た地球", channel: "NASA", category: "ニュース" }
 ];
 
+// Google OAuth クライアント ID（ご自身のものに差し替えてください）
+const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID_HERE";
+
+const videoMap = new Map(videos.map((video) => [video.id, video]));
+const storageKey = "simple-youtube-player-state";
+const previewDelayMs = 2000;
+const comboWindowMs = 1000;
+const defaultVolume = 5;
+
+const elements = {
+  previewOverlay: document.getElementById("previewOverlay"),
+  previewImage: document.getElementById("previewImage"),
+  previewTitle: document.getElementById("previewTitle"),
+  previewMeta: document.getElementById("previewMeta"),
+  loginButton: document.getElementById("loginButton"),
+  loginStatus: document.getElementById("loginStatus"),
+  playToggle: document.getElementById("playToggle"),
+  volumeDown: document.getElementById("volumeDown"),
+  volumeUp: document.getElementById("volumeUp"),
+  volumeLevel: document.getElementById("volumeLevel"),
+  captionToggle: document.getElementById("captionToggle"),
+  likeToggle: document.getElementById("likeToggle"),
+  prevButton: document.getElementById("prevButton"),
+  nextButton: document.getElementById("nextButton")
+};
+
+const state = loadState();
+const player = document.getElementById("player");
+let playerLoaded = false;
+let currentVideo = null;
+let previewTimer = null;
+let lastNavigation = { type: null, time: 0 };
+let youtubeVideos = [];
+let googleTokenClient = null;
+
+wireEvents();
+renderStaticState();
+setupPlayer();
+initGoogleLogin();
+
+function setupPlayer() {
+  player.addEventListener("load", function () {
+    if (!player.src) {
+      return;
+    }
+    player.contentWindow.postMessage(JSON.stringify({ event: "listening" }), "*");
+  });
+
+  window.addEventListener("message", onYouTubeMessage);
+
+  const initialVideo = resolveInitialVideo();
+  const knownIndex =
+    state.historyIds[state.historyIndex] === initialVideo.id
+      ? state.historyIndex
+      : state.historyIds.indexOf(initialVideo.id);
+  queueVideo(initialVideo, {
+    recordHistory: knownIndex === -1,
+    historyIndexOverride: knownIndex === -1 ? null : knownIndex,
+    assistText: "最初の動画を準備しています"
+  });
+}
+
+function initGoogleLogin() {
+  if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID === "YOUR_GOOGLE_CLIENT_ID_HERE") {
+    elements.loginButton.disabled = true;
+    elements.loginButton.title = "GOOGLE_CLIENT_ID を設定してください";
+    return;
+  }
+
+  window.addEventListener("load", function () {
+    if (!window.google) {
+      return;
+    }
+    googleTokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: "https://www.googleapis.com/auth/youtube.readonly",
+      callback: handleGoogleTokenResponse
+    });
+  });
+}
+
+function handleGoogleLogin() {
+  if (!googleTokenClient) {
+    return;
+  }
+  googleTokenClient.requestAccessToken();
+}
+
+async function handleGoogleTokenResponse(tokenResponse) {
+  if (!tokenResponse.access_token) {
+    return;
+  }
+
+  elements.loginButton.classList.add("logged-in");
+  elements.loginButton.textContent = "✅ ログイン済み";
+  elements.loginStatus.textContent = "登録チャンネルを読み込んでいます…";
+
+  try {
+    await fetchYouTubeSubscriptionVideos(tokenResponse.access_token);
+    elements.loginStatus.textContent = `おすすめ動画 ${youtubeVideos.length} 件を取得しました`;
+  } catch (error) {
+    elements.loginStatus.textContent = "動画の取得に失敗しました";
+  }
+}
+
+async function fetchYouTubeSubscriptionVideos(accessToken) {
+  const subsUrl =
+    "https://www.googleapis.com/youtube/v3/subscriptions" +
+    "?mine=true&part=snippet&maxResults=50" +
+    "&access_token=" + encodeURIComponent(accessToken);
+  const subsResponse = await fetch(subsUrl);
+  const subsData = await subsResponse.json();
+
+  if (!subsData.items || subsData.items.length === 0) {
+    return;
+  }
+
+  const channelIds = subsData.items.map(function (item) {
+    return item.snippet.resourceId.channelId;
+  });
+
+  const fetched = [];
+  for (const channelId of channelIds.slice(0, 15)) {
+    const searchUrl =
+      "https://www.googleapis.com/youtube/v3/search" +
+      "?channelId=" + encodeURIComponent(channelId) +
+      "&part=snippet&type=video&order=date&maxResults=3" +
+      "&access_token=" + encodeURIComponent(accessToken);
+    const searchResponse = await fetch(searchUrl);
+    const searchData = await searchResponse.json();
+    for (const item of (searchData.items || [])) {
+      if (!item.id || !item.id.videoId) {
+        continue;
+      }
+      fetched.push({
+        id: item.id.videoId,
+        title: item.snippet.title,
+        channel: item.snippet.channelTitle,
+        category: "おすすめ"
+      });
+    }
+  }
+
+  youtubeVideos = fetched;
+}
+
+function onYouTubeMessage(event) {
+  if (event.origin !== "https://www.youtube.com") {
+    return;
+  }
+
+  let data;
+  try {
+    data = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
+  } catch (error) {
+    return;
+  }
+
+  if (data.event === "onReady") {
+    playerLoaded = true;
+    sendPlayerCommand("addEventListener", ["onStateChange"]);
+    applyVolume();
+    applyCaptions();
+    return;
+  }
+
+  if (data.event === "onStateChange") {
+    handlePlayerStateChange(data.info);
+  }
+}
+
+function handlePlayerStateChange(stateCode) {
+  if (stateCode === 1) {
+    state.isPlaying = true;
+    elements.playToggle.textContent = "⏸️\n止める";
+    saveState();
+    return;
+  }
+
+  if (stateCode === 2 || stateCode === 0) {
+    state.isPlaying = false;
+    elements.playToggle.textContent = "▶️\n再生";
+    saveState();
+  }
+}
+
+function sendPlayerCommand(func, args) {
+  if (!playerLoaded) {
+    return;
+  }
+
+  player.contentWindow.postMessage(
+    JSON.stringify({ event: "command", func, args: args || [] }),
+    "https://www.youtube.com"
+  );
+}
+
+function loadYouTubeVideo(videoId) {
+  playerLoaded = false;
+  const params = new URLSearchParams({
+    enablejsapi: 1,
+    autoplay: 1,
+    controls: 1,
+    playsinline: 1,
+    rel: 0,
+    cc_lang_pref: "ja",
+    cc_load_policy: state.captionsEnabled ? 1 : 0,
+    fs: 1
+  });
+  player.src = `https://www.youtube.com/embed/${videoId}?${params}`;
+}
+
+function wireEvents() {
+  elements.playToggle.addEventListener("click", togglePlayback);
+  elements.volumeDown.addEventListener("click", () => changeVolume(-1));
+  elements.volumeUp.addEventListener("click", () => changeVolume(1));
+  elements.captionToggle.addEventListener("click", toggleCaptions);
+  elements.likeToggle.addEventListener("click", toggleLike);
+  elements.prevButton.addEventListener("click", playPreviousVideo);
+  elements.nextButton.addEventListener("click", playNextVideo);
+  elements.loginButton.addEventListener("click", handleGoogleLogin);
+}
+
+function renderStaticState() {
+  elements.volumeLevel.textContent = String(state.volume);
+  elements.captionToggle.textContent = state.captionsEnabled ? "💬\n字幕❌" : "💬\n字幕⭕️";
+  elements.playToggle.textContent = state.isPlaying ? "⏸️\n停止" : "▶️\n再生";
+}
+
+function togglePlayback() {
+  if (!currentVideo) {
+    return;
+  }
+
+  if (state.isPlaying) {
+    sendPlayerCommand("pauseVideo");
+    return;
+  }
+
+  sendPlayerCommand("playVideo");
+}
+
+function changeVolume(delta) {
+  state.volume = clamp(state.volume + delta, 0, 9);
+  applyVolume();
+  renderStaticState();
+  saveState();
+}
+
+function applyVolume() {
+  elements.volumeLevel.textContent = String(state.volume);
+  sendPlayerCommand("setVolume", [Math.round((state.volume / 9) * 100)]);
+}
+
+function toggleCaptions() {
+  state.captionsEnabled = !state.captionsEnabled;
+  applyCaptions();
+  renderStaticState();
+  saveState();
+}
+
+function applyCaptions() {
+  if (!playerLoaded) {
+    return;
+  }
+
+  if (state.captionsEnabled) {
+    sendPlayerCommand("loadModule", ["cc"]);
+    sendPlayerCommand("setOption", ["cc", "track", { languageCode: "ja" }]);
+    return;
+  }
+
+  sendPlayerCommand("unloadModule", ["cc"]);
+}
+
+function toggleLike() {
+  if (!currentVideo) {
+    return;
+  }
+
+  const liked = new Set(state.likedVideoIds);
+  if (liked.has(currentVideo.id)) {
+    liked.delete(currentVideo.id);
+    decrementChannelLike(currentVideo.channel);
+  } else {
+    liked.add(currentVideo.id);
+    incrementChannelLike(currentVideo.channel);
+  }
+
+  state.likedVideoIds = Array.from(liked);
+  maybeAutoSubscribe(currentVideo.channel);
+  renderCurrentVideo();
+  saveState();
+}
+
+function playPreviousVideo() {
+  if (state.historyIds.length <= 1) {
+    return;
+  }
+
+  const likedOnly = isRecentNavigation("next");
+  const previousIndex = findPreviousHistoryIndex(likedOnly);
+  if (previousIndex === -1) {
+    lastNavigation = { type: "prev", time: Date.now() };
+    return;
+  }
+
+  lastNavigation = { type: "prev", time: Date.now() };
+  const previousVideo = videoMap.get(state.historyIds[previousIndex]) ||
+    youtubeVideos.find(function (v) { return v.id === state.historyIds[previousIndex]; });
+  if (!previousVideo) {
+    return;
+  }
+  queueVideo(previousVideo, {
+    recordHistory: false,
+    historyIndexOverride: previousIndex,
+    assistText: likedOnly ? "好みの動画だけをさかのぼります" : "前に見た動画へ戻ります"
+  });
+}
+
+function playNextVideo() {
+  const forceDifferentGenre = isRecentNavigation("next");
+  const nextVideo = pickNextVideo(forceDifferentGenre);
+  lastNavigation = { type: "next", time: Date.now() };
+  queueVideo(nextVideo, {
+    recordHistory: true,
+    historyIndexOverride: null,
+    assistText: forceDifferentGenre ? "いつもと違うジャンルを探しています" : "見やすいおすすめ動画を選んでいます"
+  });
+}
+
+function queueVideo(video, options) {
+  if (!video) {
+    return;
+  }
+
+  window.clearTimeout(previewTimer);
+  showPreview(video, options.assistText);
+  previewTimer = window.setTimeout(() => {
+    startVideo(video, options);
+  }, previewDelayMs);
+}
+
+function startVideo(video, options) {
+  currentVideo = video;
+  hidePreview();
+
+  if (typeof options.historyIndexOverride === "number") {
+    state.historyIndex = options.historyIndexOverride;
+  } else if (options.recordHistory) {
+    const nextHistory = state.historyIds.slice(0, state.historyIndex + 1);
+    nextHistory.push(video.id);
+    state.historyIds = nextHistory;
+    state.historyIndex = state.historyIds.length - 1;
+  }
+
+  state.lastVideoId = video.id;
+  state.lastWatchedAt[video.id] = Date.now();
+  state.viewCounts[video.category] = (state.viewCounts[video.category] || 0) + 1;
+  renderCurrentVideo();
+  saveState();
+
+  loadYouTubeVideo(video.id);
+  applyVolume();
+  applyCaptions();
+}
+
+function renderCurrentVideo() {
+  if (!currentVideo) {
+    return;
+  }
+
+  const liked = state.likedVideoIds.includes(currentVideo.id);
+  elements.likeToggle.textContent = liked ? "💖\n取消" : "❤️\n好み";
+}
+
+function pickNextVideo(forceDifferentGenre) {
+  const allVideos = youtubeVideos.length > 0
+    ? [...youtubeVideos, ...videos]
+    : videos;
+
+  const currentCategory = currentVideo ? currentVideo.category : null;
+  const topCategory = getTopCategory();
+
+  const scored = allVideos
+    .filter((video) => !currentVideo || video.id !== currentVideo.id)
+    .map((video) => ({
+      video,
+      score: scoreVideo(video, { currentCategory, topCategory, forceDifferentGenre })
+    }))
+    .sort((left, right) => right.score - left.score);
+
+  return scored[0]?.video || videos[0];
+}
+
+function scoreVideo(video, context) {
+  let score = 10;
+  const likedChannelCount = state.likedChannels[video.channel] || 0;
+  const categoryViews = state.viewCounts[video.category] || 0;
+  const recentPenalty = state.lastWatchedAt[video.id] ? 6 : 0;
+
+  score += likedChannelCount * 4;
+  score += categoryViews * 2;
+  score += state.subscribedChannels.includes(video.channel) ? 6 : 0;
+  score -= recentPenalty;
+
+  if (context.forceDifferentGenre) {
+    if (video.category !== context.currentCategory && video.category !== context.topCategory) {
+      score += 12;
+    } else {
+      score -= 12;
+    }
+  } else if (context.currentCategory && video.category === context.currentCategory) {
+    score += 3;
+  }
+
+  return score + Math.random();
+}
+
+function findPreviousHistoryIndex(likedOnly) {
+  for (let index = state.historyIndex - 1; index >= 0; index -= 1) {
+    const videoId = state.historyIds[index];
+    if (!likedOnly || state.likedVideoIds.includes(videoId)) {
+      return index;
+    }
+  }
+
+  return -1;
+}
+
+function incrementChannelLike(channel) {
+  state.likedChannels[channel] = (state.likedChannels[channel] || 0) + 1;
+}
+
+function decrementChannelLike(channel) {
+  const nextValue = (state.likedChannels[channel] || 0) - 1;
+  if (nextValue > 0) {
+    state.likedChannels[channel] = nextValue;
+    return;
+  }
+
+  delete state.likedChannels[channel];
+}
+
+function maybeAutoSubscribe(channel) {
+  if ((state.likedChannels[channel] || 0) < 3 || state.subscribedChannels.includes(channel)) {
+    return;
+  }
+
+  state.subscribedChannels = [...state.subscribedChannels, channel];
+}
+
+function isRecentNavigation(type) {
+  return lastNavigation.type === type && Date.now() - lastNavigation.time <= comboWindowMs;
+}
+
+function getTopCategory() {
+  const categories = Object.entries(state.viewCounts);
+  categories.sort((left, right) => right[1] - left[1]);
+  return categories[0]?.[0] || "";
+}
+
+function thumbnailUrl(videoId) {
+  return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+}
+
+function showPreview(video, assistText) {
+  elements.previewImage.src = thumbnailUrl(video.id);
+  elements.previewTitle.textContent = video.title;
+  elements.previewMeta.textContent = `${video.channel} ・ ${video.category}`;
+  elements.previewOverlay.classList.remove("hidden");
+}
+
+function hidePreview() {
+  elements.previewOverlay.classList.add("hidden");
+}
+
+function resolveInitialVideo() {
+  const knownVideo = videoMap.get(state.lastVideoId);
+  if (knownVideo) {
+    return knownVideo;
+  }
+
+  return videos[0];
+}
+
+function loadState() {
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    if (!raw) {
+      return createDefaultState();
+    }
+
+    return { ...createDefaultState(), ...JSON.parse(raw) };
+  } catch (error) {
+    return createDefaultState();
+  }
+}
+
+function saveState() {
+  window.localStorage.setItem(storageKey, JSON.stringify(state));
+}
+
+function createDefaultState() {
+  return {
+    captionsEnabled: true,
+    historyIds: [],
+    historyIndex: -1,
+    isPlaying: false,
+    lastVideoId: "",
+    lastWatchedAt: {},
+    likedChannels: {},
+    likedVideoIds: [],
+    subscribedChannels: [],
+    viewCounts: {},
+    volume: defaultVolume
+  };
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
 const videoMap = new Map(videos.map((video) => [video.id, video]));
 const storageKey = "simple-youtube-player-state";
 const previewDelayMs = 2000;

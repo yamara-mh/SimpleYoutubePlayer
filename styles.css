@@ -87,40 +87,6 @@ button {
   font-size: clamp(1rem, 2vw, 1.5rem);
 }
 
-.player-info {
-  position: absolute;
-  left: 1.5rem;
-  right: 1.5rem;
-  bottom: 1.5rem;
-  z-index: 1;
-  padding: 1rem 1.25rem;
-  border-radius: 24px;
-  background: rgba(5, 12, 24, 0.68);
-  color: #fff;
-  backdrop-filter: blur(12px);
-}
-
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin: 0 0 0.75rem;
-  padding: 0.4rem 0.8rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.14);
-  font-size: 1rem;
-}
-
-.video-title {
-  margin: 0 0 0.5rem;
-  font-size: clamp(1.6rem, 3vw, 2.5rem);
-}
-
-.video-meta {
-  margin: 0;
-  font-size: clamp(1rem, 2vw, 1.3rem);
-}
-
 .control-section {
   display: grid;
   grid-template-rows: auto 1fr;
@@ -128,27 +94,39 @@ button {
   padding: 0.6rem 1rem 1rem;
 }
 
-.status-card {
+.login-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 1rem;
-  padding: 0.9rem 1.2rem;
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.88);
-  box-shadow: 0 10px 28px rgba(16, 38, 66, 0.12);
+  padding: 0.6rem 0.2rem;
 }
 
-.assist-message,
-.trend-message {
-  margin: 0;
-  font-size: clamp(1rem, 2vw, 1.3rem);
+.login-button {
+  padding: 0.5rem 1.2rem;
+  border: 2px solid #1f72ff;
+  border-radius: 999px;
+  background: #fff;
+  color: #1f72ff;
+  font-size: clamp(0.9rem, 1.5vw, 1.1rem);
   font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
-.trend-message {
+.login-button:hover {
+  background: #e8f0ff;
+}
+
+.login-button.logged-in {
+  background: #e8f0ff;
+  border-color: #0d5cc7;
+  color: #0d5cc7;
+}
+
+.login-status {
+  font-size: clamp(0.85rem, 1.5vw, 1rem);
   color: #33527a;
-  text-align: right;
+  font-weight: 600;
 }
 
 .controls-row {
@@ -160,6 +138,7 @@ button {
 
 .control-button {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   min-height: 100%;
@@ -171,6 +150,8 @@ button {
   font-size: clamp(1.5rem, 3vw, 3rem);
   font-weight: 800;
   box-shadow: 0 14px 30px rgba(16, 38, 66, 0.15);
+  white-space: pre-line;
+  line-height: 1.2;
 }
 
 .primary-button {
@@ -239,15 +220,6 @@ button {
   .preview-overlay {
     grid-template-columns: 1fr;
     padding: 1.2rem;
-  }
-
-  .status-card {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .trend-message {
-    text-align: left;
   }
 
   .controls-row {
