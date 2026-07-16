@@ -56,7 +56,6 @@ let lastNavigation = { type: null, time: 0 };
 let googleTokenClient = null;
 let googleAccessToken = null;
 let captionTimer = null;
-let gisRetryTimer = null;
 
 wireEvents();
 renderStaticState();
@@ -214,11 +213,11 @@ function applyCaptions() {
   clearTimeout(captionTimer);
 
   if (state.captionsEnabled) {
-    sendPlayerCommand("loadModule", ["cc"]);
-    // Wait for the cc module to finish initializing before setting the track
+    sendPlayerCommand("loadModule", ["captions"]);
+    // Wait for the captions module to finish initializing before setting the track
     captionTimer = setTimeout(function () {
       // Prefer Japanese captions; auto-translate other-language captions to Japanese
-      sendPlayerCommand("setOption", ["cc", "track", {
+      sendPlayerCommand("setOption", ["captions", "track", {
         languageCode: "ja",
         translationLanguage: { languageCode: "ja" }
       }]);
@@ -226,7 +225,7 @@ function applyCaptions() {
     return;
   }
 
-  sendPlayerCommand("unloadModule", ["cc"]);
+  sendPlayerCommand("unloadModule", ["captions"]);
 }
 
 function toggleLike() {
@@ -496,17 +495,9 @@ function renderLoginState() {
 
 function requestGoogleLogin() {
   if (!window.google?.accounts?.oauth2) {
-    setAssistMessage("Googleログインの準備中です。少し待ってからお試しください");
-    // Retry once automatically after the GIS library finishes loading
-    clearTimeout(gisRetryTimer);
-    gisRetryTimer = setTimeout(function () {
-      if (window.google?.accounts?.oauth2) {
-        requestGoogleLogin();
-      }
-    }, 3000);
+    setAssistMessage("Googleログイン画面を準備中です。もう一度お試しください");
     return;
   }
-  clearTimeout(gisRetryTimer);
   if (!GOOGLE_CLIENT_ID) {
     setAssistMessage("GOOGLE_CLIENT_ID が設定されていません");
     return;
@@ -518,7 +509,7 @@ function requestGoogleLogin() {
       callback: handleGoogleAuthCallback
     });
   }
-  googleTokenClient.requestAccessToken();
+  googleTokenClient.requestAccessToken({ prompt: "select_account" });
 }
 
 function requestGoogleLogout() {
@@ -530,7 +521,6 @@ function requestGoogleLogout() {
     setAssistMessage("現在ログインしていません");
     return;
   }
-  clearTimeout(gisRetryTimer);
   google.accounts.oauth2.revoke(googleAccessToken, () => {
     googleAccessToken = null;
     googleTokenClient = null;
