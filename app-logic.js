@@ -556,47 +556,6 @@ function thumbnailUrl(videoId) {
   return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
 }
 
-function loadState() {
-  try {
-    const raw = window.localStorage.getItem(storageKey);
-    if (!raw) {
-      return createDefaultState();
-    }
-
-    const parsed = JSON.parse(raw);
-    const nextState = { ...createDefaultState(), ...parsed };
-
-    if (!Array.isArray(nextState.likedVideoIds)) {
-      delete nextState.likedVideoIds;
-    }
-
-    nextState.interestTags = sanitizeNumericMap(nextState.interestTags);
-    nextState.categoryInterests = sanitizeNumericMap(nextState.categoryInterests);
-
-    return nextState;
-  } catch (_error) {
-    return createDefaultState();
-  }
-}
-
-function saveState() {
-  window.localStorage.setItem(storageKey, JSON.stringify(state));
-}
-
-function createDefaultState() {
-  return {
-    currentCreatorId: "",
-    currentPlaylistId: "",
-    currentVideoId: "",
-    currentVideoCategoryId: "",
-    currentVideoChannelId: "",
-    isPlaying: false,
-    volume: defaultVolume,
-    interestTags: {},
-    categoryInterests: {},
-    lastInterestDecayDate: ""
-  };
-}
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
@@ -842,24 +801,6 @@ function sanitizeTags(tags) {
   );
 }
 
-function sanitizeNumericMap(value) {
-  const result = {};
-  if (!value || typeof value !== "object") {
-    return result;
-  }
-
-  for (const [key, entryValue] of Object.entries(value)) {
-    if (typeof key !== "string") {
-      continue;
-    }
-    const numeric = Number(entryValue);
-    if (Number.isFinite(numeric) && numeric > 0) {
-      result[key] = numeric;
-    }
-  }
-
-  return result;
-}
 
 function maybeDecayInterestsOnDateChange() {
   const today = currentDateKey();

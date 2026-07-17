@@ -46,6 +46,67 @@ const elements = {
   searchButton: document.getElementById("nextButton")
 };
 
+function sanitizeNumericMap(value) {
+  const result = {};
+  if (!value || typeof value !== "object") {
+    return result;
+  }
+
+  for (const [key, entryValue] of Object.entries(value)) {
+    if (typeof key !== "string") {
+      continue;
+    }
+    const numeric = Number(entryValue);
+    if (Number.isFinite(numeric) && numeric > 0) {
+      result[key] = numeric;
+    }
+  }
+
+  return result;
+}
+
+function createDefaultState() {
+  return {
+    currentCreatorId: "",
+    currentPlaylistId: "",
+    currentVideoId: "",
+    currentVideoCategoryId: "",
+    currentVideoChannelId: "",
+    isPlaying: false,
+    volume: defaultVolume,
+    interestTags: {},
+    categoryInterests: {},
+    lastInterestDecayDate: ""
+  };
+}
+
+function loadState() {
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    if (!raw) {
+      return createDefaultState();
+    }
+
+    const parsed = JSON.parse(raw);
+    const nextState = { ...createDefaultState(), ...parsed };
+
+    if (!Array.isArray(nextState.likedVideoIds)) {
+      delete nextState.likedVideoIds;
+    }
+
+    nextState.interestTags = sanitizeNumericMap(nextState.interestTags);
+    nextState.categoryInterests = sanitizeNumericMap(nextState.categoryInterests);
+
+    return nextState;
+  } catch (_error) {
+    return createDefaultState();
+  }
+}
+
+function saveState() {
+  window.localStorage.setItem(storageKey, JSON.stringify(state));
+}
+
 const state = loadState();
 const player = document.getElementById("player");
 let playerLoaded = false;
