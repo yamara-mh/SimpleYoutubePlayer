@@ -25,7 +25,7 @@ button {
 
 .app-shell {
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: 1fr auto;
   min-height: 100vh;
 }
 
@@ -103,62 +103,9 @@ button {
   color: #334;
 }
 
-.auth-header {
-  padding: 0.75rem 1rem;
-  background: rgba(255, 255, 255, 0.7);
-  border-bottom: 1px solid rgba(16, 38, 66, 0.1);
-}
-
-.auth-guest {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.auth-description {
-  margin: 0;
-  font-size: clamp(0.9rem, 2vw, 1.1rem);
-  color: #445;
-}
-
-.auth-user {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.auth-name {
-  font-size: 1rem;
-  font-weight: 700;
-}
-
-.auth-button {
-  padding: 0.6rem 1.4rem;
-  border: none;
-  border-radius: 20px;
-  background: linear-gradient(180deg, #4285f4 0%, #2a6dd9 100%);
-  color: #fff;
-  font-size: 1rem;
-  font-weight: 700;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.auth-button-sm {
-  background: linear-gradient(180deg, #9aa 0%, #788 100%);
-  padding: 0.45rem 1rem;
-  font-size: 0.9rem;
-}
-
-.auth-button:focus-visible {
-  outline: 4px solid #1f72ff;
-  outline-offset: 4px;
-}
-
 .controls-row {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0.9rem;
   min-height: 0;
 }
