@@ -2,11 +2,14 @@ const creators = [
   {
     id: "youtube-developers",
     name: "YouTube Developers",
+    defaultCategoryId: "27",
+    defaultTags: ["開発", "学習", "チュートリアル", "YouTube"],
     playlists: [
       {
         id: "yt-dev-intro",
         title: "開発入門 Part 集",
         popularity: 980,
+        tags: ["入門", "設定", "操作"],
         videos: [
           { id: "M7lc1UVf-VE", title: "Part 3 はじめての設定", publishedAt: "2024-05-03T09:00:00Z" },
           { id: "XGSy3_Czz8k", title: "Part 2 やさしい操作", publishedAt: "2024-05-02T09:00:00Z" },
@@ -17,6 +20,7 @@ const creators = [
         id: "yt-dev-events",
         title: "公開イベントまとめ",
         popularity: 860,
+        tags: ["イベント", "配信", "ハイライト"],
         videos: [
           { id: "jNQXAC9IVRw", title: "春の配信ハイライト", publishedAt: "2024-06-20T09:00:00Z" },
           { id: "1La4QzGeaaQ", title: "夏の配信ハイライト", publishedAt: "2024-06-19T09:00:00Z" },
@@ -27,6 +31,7 @@ const creators = [
         id: "yt-dev-campus",
         title: "学びなおしセレクション",
         popularity: 730,
+        tags: ["復習", "質問", "解説"],
         videos: [
           { id: "3fumBcKC6RE", title: "やさしい質問コーナー", publishedAt: "2024-02-10T09:00:00Z" },
           { id: "aqz-KE-bpKQ", title: "ゆっくり解説タイム", publishedAt: "2024-01-28T09:00:00Z" },
@@ -38,11 +43,14 @@ const creators = [
   {
     id: "ed-sheeran",
     name: "Ed Sheeran",
+    defaultCategoryId: "10",
+    defaultTags: ["音楽", "ライブ", "ポップ"],
     playlists: [
       {
         id: "ed-sheeran-diary",
         title: "Day ライブ日記",
         popularity: 920,
+        tags: ["日記", "ライブ", "リハーサル"],
         videos: [
           { id: "2Vv-BfVoq4g", title: "Day 3 ライブの夜", publishedAt: "2023-09-03T09:00:00Z" },
           { id: "JGwWNGJdvx8", title: "Day 2 リハーサル", publishedAt: "2023-09-02T09:00:00Z" },
@@ -53,6 +61,7 @@ const creators = [
         id: "ed-sheeran-picks",
         title: "人気ステージ集",
         popularity: 780,
+        tags: ["人気", "ステージ", "ベスト"],
         videos: [
           { id: "eVTXPUF4Oz4", title: "ステージ 1", publishedAt: "2024-03-10T09:00:00Z" },
           { id: "8sgycukafqQ", title: "ステージ 2", publishedAt: "2024-03-17T09:00:00Z" },
@@ -64,11 +73,14 @@ const creators = [
   {
     id: "world-trips",
     name: "World Trips",
+    defaultCategoryId: "19",
+    defaultTags: ["旅行", "散歩", "観光"],
     playlists: [
       {
         id: "world-trips-seasons",
         title: "四季の旅",
         popularity: 810,
+        tags: ["春", "夏", "秋", "街歩き"],
         videos: [
           { id: "dQw4w9WgXcQ", title: "第3話 秋の街歩き", publishedAt: "2022-11-03T09:00:00Z" },
           { id: "7QUtEmBT_-w", title: "第2話 夏の海辺", publishedAt: "2022-11-02T09:00:00Z" },
@@ -79,6 +91,7 @@ const creators = [
         id: "world-trips-weekend",
         title: "週末さんぽ",
         popularity: 650,
+        tags: ["朝", "昼", "夜", "散歩"],
         videos: [
           { id: "60ItHLz5WEA", title: "朝の広場", publishedAt: "2024-04-13T09:00:00Z" },
           { id: "RgKAFK5djSk", title: "昼の市場", publishedAt: "2024-04-12T09:00:00Z" },
@@ -92,7 +105,23 @@ const creators = [
 const storageKey = "simple-youtube-player-state";
 const previewDelayMs = 2000;
 const defaultVolume = 5;
-const youtubeApiKey = ""; // Set your YouTube Data API v3 key here to enable channel playlist fetching
+const youtubeApiKey = ""; // YouTube Data API v3 key
+const categorySearchRefreshMs = 6 * 60 * 60 * 1000;
+const categorySearchShortenMs = 60 * 60 * 1000;
+const dynamicSearchCreatorId = "__dynamic-search__";
+
+const categoryCatalog = [
+  { id: "10", label: "音楽" },
+  { id: "19", label: "旅行" },
+  { id: "20", label: "ゲーム" },
+  { id: "22", label: "ブログ" },
+  { id: "23", label: "コメディ" },
+  { id: "24", label: "エンタメ" },
+  { id: "25", label: "ニュース" },
+  { id: "26", label: "ハウツー" },
+  { id: "27", label: "教育" },
+  { id: "28", label: "科学" }
+];
 
 const creatorList = creators.map(normalizeCreator);
 const creatorMap = new Map(creatorList.map((creator) => [creator.id, creator]));
@@ -114,9 +143,8 @@ const elements = {
   volumeDown: document.getElementById("volumeDown"),
   volumeUp: document.getElementById("volumeUp"),
   volumeLevel: document.getElementById("volumeLevel"),
-  likeToggle: document.getElementById("likeToggle"),
   moreButton: document.getElementById("moreButton"),
-  nextButton: document.getElementById("nextButton")
+  searchButton: document.getElementById("nextButton")
 };
 
 const state = loadState();
@@ -126,38 +154,61 @@ let currentVideo = null;
 let currentPlaylist = null;
 let queuedPlayback = null;
 let previewTimer = null;
-const creatorPageState = new Map(); // Maps creatorId → { nextPageToken: string | null, allLoaded: boolean }
 let isFetchingPlaylists = false;
+let watchSessionStartedAt = 0;
+let accumulatedWatchSeconds = 0;
+let lastKnownDurationSeconds = 0;
+let lastKnownCurrentSeconds = 0;
+const creatorPageState = new Map();
+const categorySearchCache = new Map();
+const recentSelectedCategories = [];
 
 wireEvents();
 renderStaticState();
 setupPlayer();
 
 function normalizeCreator(creator) {
+  const defaultCategoryId = creator.defaultCategoryId || "24";
+  const defaultTags = sanitizeTags(creator.defaultTags || []);
+
   return {
     ...creator,
+    defaultCategoryId,
+    defaultTags,
     playlists: creator.playlists
       .slice()
       .sort((left, right) => right.popularity - left.popularity)
-      .map((playlist) => normalizePlaylist(creator, playlist))
+      .map((playlist) => normalizePlaylist(creator, playlist, defaultCategoryId, defaultTags))
   };
 }
 
-function normalizePlaylist(creator, playlist) {
+function normalizePlaylist(creator, playlist, inheritedCategoryId, inheritedTags) {
   const ordered = resolvePlaylistPlaybackOrder(playlist.videos);
+  const playlistTags = sanitizeTags([...(inheritedTags || []), ...(playlist.tags || [])]);
+  const categoryId = playlist.categoryId || inheritedCategoryId || "24";
+
   return {
     ...playlist,
     creatorId: creator.id,
     creatorName: creator.name,
+    categoryId,
+    tags: playlistTags,
     playbackMode: ordered.mode,
-    orderedVideos: ordered.videos.map((video, index) => ({
-      ...video,
-      channel: creator.name,
-      creatorId: creator.id,
-      playlistId: playlist.id,
-      playlistTitle: playlist.title,
-      playbackIndex: index
-    }))
+    orderedVideos: ordered.videos.map((video, index) => {
+      const tags = sanitizeTags([...(playlistTags || []), ...(video.tags || []), video.title]);
+      return {
+        ...video,
+        channel: creator.name,
+        channelId: video.channelId || creator.channelId || "",
+        creatorId: creator.id,
+        playlistId: playlist.id,
+        playlistTitle: playlist.title,
+        playbackIndex: index,
+        categoryId: video.categoryId || categoryId,
+        tags,
+        durationSeconds: video.durationSeconds || 0
+      };
+    })
   };
 }
 
@@ -255,6 +306,8 @@ function setupPlayer() {
   });
 
   window.addEventListener("message", onYouTubeMessage);
+  document.addEventListener("visibilitychange", onVisibilityChange);
+  window.addEventListener("beforeunload", () => finalizeWatchSession({ ended: false }));
 
   const initialPlayback = resolveInitialPlayback();
   queuePlayback(initialPlayback);
@@ -268,7 +321,7 @@ function onYouTubeMessage(event) {
   let data;
   try {
     data = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
-  } catch (error) {
+  } catch (_error) {
     return;
   }
 
@@ -281,11 +334,27 @@ function onYouTubeMessage(event) {
 
   if (data.event === "onStateChange") {
     handlePlayerStateChange(data.info);
+    return;
+  }
+
+  if (data.event === "infoDelivery") {
+    const info = data.info || {};
+    if (Number.isFinite(info.duration) && info.duration > 0) {
+      lastKnownDurationSeconds = info.duration;
+      if (currentVideo) {
+        currentVideo.durationSeconds = Math.max(currentVideo.durationSeconds || 0, info.duration);
+      }
+    }
+    if (Number.isFinite(info.currentTime)) {
+      lastKnownCurrentSeconds = info.currentTime;
+    }
   }
 }
 
 function handlePlayerStateChange(stateCode) {
   if (stateCode === 1) {
+    maybeDecayInterestsOnDateChange();
+    startWatchSession();
     state.isPlaying = true;
     elements.playToggle.innerHTML = "⏸️<br>停止";
     saveState();
@@ -293,6 +362,7 @@ function handlePlayerStateChange(stateCode) {
   }
 
   if (stateCode === 2) {
+    pauseWatchSession();
     state.isPlaying = false;
     elements.playToggle.innerHTML = "▶️<br>再生";
     saveState();
@@ -300,6 +370,7 @@ function handlePlayerStateChange(stateCode) {
   }
 
   if (stateCode === 0) {
+    finalizeWatchSession({ ended: true });
     state.isPlaying = false;
     elements.playToggle.innerHTML = "▶️<br>再生";
     saveState();
@@ -339,15 +410,13 @@ function wireEvents() {
   elements.playToggle.addEventListener("click", togglePlayback);
   elements.volumeDown.addEventListener("click", () => changeVolume(-1));
   elements.volumeUp.addEventListener("click", () => changeVolume(1));
-  elements.likeToggle.addEventListener("click", toggleLike);
   elements.moreButton.addEventListener("click", playMoreVideos);
-  elements.nextButton.addEventListener("click", playNextVideo);
+  elements.searchButton.addEventListener("click", playSearchDecision);
 }
 
 function renderStaticState() {
   elements.volumeLevel.textContent = String(state.volume);
   elements.playToggle.innerHTML = state.isPlaying ? "⏸️<br>停止" : "▶️<br>再生";
-  renderCurrentVideo();
 }
 
 function togglePlayback() {
@@ -375,24 +444,9 @@ function applyVolume() {
   sendPlayerCommand("setVolume", [Math.round((state.volume / 9) * 100)]);
 }
 
-function toggleLike() {
-  if (!currentVideo) {
-    return;
-  }
-
-  const liked = new Set(state.likedVideoIds);
-  if (liked.has(currentVideo.id)) {
-    liked.delete(currentVideo.id);
-  } else {
-    liked.add(currentVideo.id);
-  }
-
-  state.likedVideoIds = Array.from(liked);
-  renderCurrentVideo();
-  saveState();
-}
-
 async function playMoreVideos() {
+  finalizeWatchSession({ ended: false });
+
   if (queuedPlayback) {
     const alternatePlayback = findAlternativePlaylistPlayback(queuedPlayback);
     if (alternatePlayback) {
@@ -435,18 +489,55 @@ async function playMoreVideos() {
   queuePlayback(nextPlayback);
 }
 
-function playNextVideo() {
-  if (queuedPlayback) {
-    startQueuedPlayback();
+async function playSearchDecision() {
+  if (!currentVideo) {
     return;
   }
 
-  const nextCreatorPlayback = findNextCreatorPlayback(getCurrentPlayback());
-  if (!nextCreatorPlayback) {
+  const watchSeconds = getCurrentWatchSeconds();
+  const durationSeconds = resolveDurationSeconds();
+  const halfWatched = durationSeconds > 0 && watchSeconds >= durationSeconds / 2;
+
+  if (watchSeconds >= 60) {
+    recentSelectedCategories.length = 0;
+  }
+
+  finalizeWatchSession({ ended: false });
+
+  if (halfWatched) {
+    await playMoreVideos();
     return;
   }
 
-  queuePlayback(nextCreatorPlayback);
+  if (watchSeconds < 0.8) {
+    const categoryId = selectCategoryForQuickSwitch();
+    const playback = await getCategoryPlayback(categoryId, { preferNext: false, forceRefresh: false });
+    if (playback) {
+      queuePlayback(playback);
+    }
+    return;
+  }
+
+  if (watchSeconds < 10) {
+    const categoryId = currentVideo.categoryId || state.currentVideoCategoryId || defaultCategoryId();
+    const playback = await getCategoryPlayback(categoryId, { preferNext: true, forceRefresh: false });
+    if (playback) {
+      queuePlayback(playback);
+    }
+    return;
+  }
+
+  const relatedPlayback = await getRelatedUploadsPlayback(currentVideo);
+  if (relatedPlayback) {
+    queuePlayback(relatedPlayback);
+    return;
+  }
+
+  const fallbackCategory = currentVideo.categoryId || state.currentVideoCategoryId || defaultCategoryId();
+  const fallbackPlayback = await getCategoryPlayback(fallbackCategory, { preferNext: true, forceRefresh: false });
+  if (fallbackPlayback) {
+    queuePlayback(fallbackPlayback);
+  }
 }
 
 function queuePlayback(playback) {
@@ -481,17 +572,15 @@ function startQueuedPlayback() {
   state.currentCreatorId = playback.creatorId;
   state.currentPlaylistId = playlist.id;
   state.currentVideoId = video.id;
+  state.currentVideoCategoryId = video.categoryId || defaultCategoryId();
+  state.currentVideoChannelId = video.channelId || "";
   saveState();
 
+  resetWatchClock();
   hidePreview();
-  renderCurrentVideo();
   loadYouTubeVideo(video.id);
   applyVolume();
-}
-
-function renderCurrentVideo() {
-  const liked = currentVideo ? state.likedVideoIds.includes(currentVideo.id) : false;
-  elements.likeToggle.innerHTML = liked ? "💖<br>取消" : "❤️<br>好み";
+  ensureVideoMetadata(video).catch(() => {});
 }
 
 function showPreview(video) {
@@ -616,34 +705,7 @@ function findAlternativePlaylistPlayback(playback) {
     return { creatorId: creator.id, playlistId: creator.playlists[0].id, videoIndex: 0 };
   }
 
-  return null; // Signal: more playlists can be fetched
-}
-
-function findNextCreatorPlayback(playback) {
-  if (!creatorList.length) {
-    return null;
-  }
-
-  if (!playback) {
-    const firstCreator = creatorList[0];
-    return {
-      creatorId: firstCreator.id,
-      playlistId: firstCreator.playlists[0].id,
-      videoIndex: 0
-    };
-  }
-
-  const creatorIndex = creatorList.findIndex((creator) => creator.id === playback.creatorId);
-  if (creatorIndex === -1) {
-    return null;
-  }
-
-  const nextCreator = creatorList[(creatorIndex + 1) % creatorList.length];
-  return {
-    creatorId: nextCreator.id,
-    playlistId: nextCreator.playlists[0].id,
-    videoIndex: 0
-  };
+  return null;
 }
 
 function clearPreviewTimer() {
@@ -664,8 +726,18 @@ function loadState() {
       return createDefaultState();
     }
 
-    return { ...createDefaultState(), ...JSON.parse(raw) };
-  } catch (error) {
+    const parsed = JSON.parse(raw);
+    const nextState = { ...createDefaultState(), ...parsed };
+
+    if (!Array.isArray(nextState.likedVideoIds)) {
+      delete nextState.likedVideoIds;
+    }
+
+    nextState.interestTags = sanitizeNumericMap(nextState.interestTags);
+    nextState.categoryInterests = sanitizeNumericMap(nextState.categoryInterests);
+
+    return nextState;
+  } catch (_error) {
     return createDefaultState();
   }
 }
@@ -679,9 +751,13 @@ function createDefaultState() {
     currentCreatorId: "",
     currentPlaylistId: "",
     currentVideoId: "",
+    currentVideoCategoryId: "",
+    currentVideoChannelId: "",
     isPlaying: false,
-    likedVideoIds: [],
-    volume: defaultVolume
+    volume: defaultVolume,
+    interestTags: {},
+    categoryInterests: {},
+    lastInterestDecayDate: ""
   };
 }
 
@@ -698,7 +774,12 @@ function getCreatorPageState(creatorId) {
 }
 
 function addPlaylistToCreator(creator, playlistData) {
-  const normalized = normalizePlaylist(creator, playlistData);
+  const normalized = normalizePlaylist(
+    creator,
+    playlistData,
+    creator.defaultCategoryId || defaultCategoryId(),
+    creator.defaultTags || []
+  );
   creator.playlists.push(normalized);
   playlistMap.set(normalized.id, normalized);
   for (const video of normalized.orderedVideos) {
@@ -725,12 +806,22 @@ async function loadUploadsPlaylist(creator) {
     const videos = videoItems.map((item) => ({
       id: item.snippet.resourceId.videoId,
       title: item.snippet.title,
-      publishedAt: item.snippet.publishedAt
+      publishedAt: item.snippet.publishedAt,
+      channelId: item.snippet.channelId,
+      categoryId: creator.defaultCategoryId,
+      tags: creator.defaultTags
     }));
 
-    addPlaylistToCreator(creator, { id: uploadsId, title: creator.name, popularity: 0, videos });
+    addPlaylistToCreator(creator, {
+      id: uploadsId,
+      title: `${creator.name} uploads`,
+      popularity: 0,
+      categoryId: creator.defaultCategoryId,
+      tags: creator.defaultTags,
+      videos
+    });
   } catch (_error) {
-    // Silently treat as done to prevent retrying on next press
+    // no-op
   }
 
   getCreatorPageState(creator.id).allLoaded = true;
@@ -762,9 +853,19 @@ async function loadMorePlaylists(creator) {
       const videos = videoItems.map((v) => ({
         id: v.snippet.resourceId.videoId,
         title: v.snippet.title,
-        publishedAt: v.snippet.publishedAt
+        publishedAt: v.snippet.publishedAt,
+        channelId: v.snippet.channelId,
+        categoryId: creator.defaultCategoryId,
+        tags: creator.defaultTags
       }));
-      addPlaylistToCreator(creator, { id: item.id, title: item.snippet.title, popularity: 0, videos });
+      addPlaylistToCreator(creator, {
+        id: item.id,
+        title: item.snippet.title,
+        popularity: 0,
+        categoryId: creator.defaultCategoryId,
+        tags: creator.defaultTags,
+        videos
+      });
     }
 
     pageState.nextPageToken = playlistsData.nextPageToken || null;
@@ -786,4 +887,611 @@ async function fetchPlaylistItems(playlistId) {
   const params = new URLSearchParams({ part: "snippet", playlistId, maxResults: "50", key: youtubeApiKey });
   const data = await fetchYouTubeApi(`https://www.googleapis.com/youtube/v3/playlistItems?${params}`);
   return (data.items || []).filter((item) => item.snippet?.resourceId?.kind === "youtube#video");
+}
+
+function defaultCategoryId() {
+  return "24";
+}
+
+function sanitizeTags(tags) {
+  return Array.from(
+    new Set(
+      (tags || [])
+        .flatMap((tag) => String(tag || "").split(/[\s、,，／/|]+/g))
+        .map((tag) => tag.trim())
+        .filter(Boolean)
+    )
+  );
+}
+
+function sanitizeNumericMap(value) {
+  const result = {};
+  if (!value || typeof value !== "object") {
+    return result;
+  }
+
+  for (const [key, entryValue] of Object.entries(value)) {
+    if (typeof key !== "string") {
+      continue;
+    }
+    const numeric = Number(entryValue);
+    if (Number.isFinite(numeric) && numeric > 0) {
+      result[key] = numeric;
+    }
+  }
+
+  return result;
+}
+
+function maybeDecayInterestsOnDateChange() {
+  const today = currentDateKey();
+  if (!state.lastInterestDecayDate) {
+    state.lastInterestDecayDate = today;
+    saveState();
+    return;
+  }
+
+  if (state.lastInterestDecayDate === today) {
+    return;
+  }
+
+  const elapsedDays = daysBetween(state.lastInterestDecayDate, today);
+  if (elapsedDays <= 0) {
+    state.lastInterestDecayDate = today;
+    saveState();
+    return;
+  }
+
+  const boundedDays = Math.min(elapsedDays, 180);
+  const factor = (365 - boundedDays) / 365;
+
+  multiplyMapValues(state.interestTags, factor);
+  multiplyMapValues(state.categoryInterests, factor);
+  pruneInterestTagsToLimit(1024);
+
+  state.lastInterestDecayDate = today;
+  saveState();
+}
+
+function currentDateKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function daysBetween(fromDateKey, toDateKey) {
+  const from = Date.parse(`${fromDateKey}T00:00:00Z`);
+  const to = Date.parse(`${toDateKey}T00:00:00Z`);
+  if (!Number.isFinite(from) || !Number.isFinite(to)) {
+    return 0;
+  }
+  return Math.floor((to - from) / 86400000);
+}
+
+function multiplyMapValues(mapObject, factor) {
+  for (const key of Object.keys(mapObject)) {
+    mapObject[key] *= factor;
+    if (!Number.isFinite(mapObject[key]) || mapObject[key] <= 0.0001) {
+      delete mapObject[key];
+    }
+  }
+}
+
+function pruneInterestTagsToLimit(limit) {
+  const entries = Object.entries(state.interestTags);
+  if (entries.length <= limit) {
+    return;
+  }
+
+  entries.sort((left, right) => left[1] - right[1]);
+  for (let index = 0; index < entries.length - limit; index += 1) {
+    delete state.interestTags[entries[index][0]];
+  }
+}
+
+function startWatchSession() {
+  if (!watchSessionStartedAt) {
+    watchSessionStartedAt = Date.now();
+  }
+}
+
+function pauseWatchSession() {
+  if (!watchSessionStartedAt) {
+    return;
+  }
+  accumulatedWatchSeconds += (Date.now() - watchSessionStartedAt) / 1000;
+  watchSessionStartedAt = 0;
+}
+
+function resetWatchClock() {
+  watchSessionStartedAt = 0;
+  accumulatedWatchSeconds = 0;
+  lastKnownDurationSeconds = currentVideo?.durationSeconds || 0;
+  lastKnownCurrentSeconds = 0;
+}
+
+function getCurrentWatchSeconds() {
+  let seconds = accumulatedWatchSeconds;
+  if (watchSessionStartedAt) {
+    seconds += (Date.now() - watchSessionStartedAt) / 1000;
+  }
+  if (Number.isFinite(lastKnownCurrentSeconds) && lastKnownCurrentSeconds > seconds) {
+    seconds = lastKnownCurrentSeconds;
+  }
+  return Math.max(0, seconds);
+}
+
+function resolveDurationSeconds() {
+  const candidates = [lastKnownDurationSeconds, currentVideo?.durationSeconds || 0];
+  for (const candidate of candidates) {
+    if (Number.isFinite(candidate) && candidate > 0) {
+      return candidate;
+    }
+  }
+  return 0;
+}
+
+function finalizeWatchSession({ ended }) {
+  if (!currentVideo) {
+    resetWatchClock();
+    return;
+  }
+
+  pauseWatchSession();
+
+  const watchedSeconds = getCurrentWatchSeconds();
+  const durationSeconds = resolveDurationSeconds();
+  const shouldRecord = durationSeconds >= 15 || ended;
+
+  if (shouldRecord && watchedSeconds > 0) {
+    updateInterestFromVideo(currentVideo, watchedSeconds);
+  }
+
+  if (watchedSeconds >= 60) {
+    recentSelectedCategories.length = 0;
+  }
+
+  saveState();
+  resetWatchClock();
+}
+
+function updateInterestFromVideo(video, watchedSeconds) {
+  const tags = sanitizeTags(video.tags || []);
+  let factor = 1;
+  for (const tag of tags) {
+    const current = state.interestTags[tag] || 0;
+    state.interestTags[tag] = current + watchedSeconds * factor;
+    factor *= 0.9;
+  }
+
+  const categoryId = video.categoryId || defaultCategoryId();
+  state.categoryInterests[categoryId] = (state.categoryInterests[categoryId] || 0) + watchedSeconds;
+  state.currentVideoCategoryId = categoryId;
+  if (video.channelId) {
+    state.currentVideoChannelId = video.channelId;
+  }
+
+  pruneInterestTagsToLimit(1024);
+}
+
+function onVisibilityChange() {
+  if (document.hidden) {
+    finalizeWatchSession({ ended: false });
+  }
+}
+
+function selectCategoryForQuickSwitch() {
+  const categoryId = drawWeightedCategoryExcludingRecent();
+  if (!categoryId) {
+    return currentVideo?.categoryId || state.currentVideoCategoryId || defaultCategoryId();
+  }
+
+  recentSelectedCategories.push(categoryId);
+  if (recentSelectedCategories.length > 10) {
+    recentSelectedCategories.shift();
+  }
+  return categoryId;
+}
+
+function drawWeightedCategoryExcludingRecent() {
+  const categoryEntries = Object.entries(state.categoryInterests)
+    .filter(([, weight]) => Number.isFinite(weight) && weight > 0)
+    .filter(([categoryId]) => !recentSelectedCategories.includes(categoryId));
+
+  if (categoryEntries.length === 0) {
+    const fallback = categoryCatalog
+      .map((entry) => entry.id)
+      .filter((categoryId) => !recentSelectedCategories.includes(categoryId));
+    if (!fallback.length) {
+      return "";
+    }
+    return fallback[Math.floor(Math.random() * fallback.length)];
+  }
+
+  return weightedPick(categoryEntries);
+}
+
+function weightedPick(entries) {
+  const total = entries.reduce((sum, [, weight]) => sum + weight, 0);
+  if (total <= 0) {
+    return entries[Math.floor(Math.random() * entries.length)][0];
+  }
+
+  let cursor = Math.random() * total;
+  for (const [key, weight] of entries) {
+    cursor -= weight;
+    if (cursor <= 0) {
+      return key;
+    }
+  }
+
+  return entries[entries.length - 1][0];
+}
+
+async function getCategoryPlayback(categoryId, options) {
+  const list = await getCategorySearchResults(categoryId, options.forceRefresh);
+  if (!list.length) {
+    return null;
+  }
+
+  const cache = categorySearchCache.get(categoryId);
+  if (!cache) {
+    return null;
+  }
+
+  if (options.preferNext) {
+    cache.index = (cache.index + 1) % list.length;
+  } else if (cache.index < 0 || cache.index >= list.length) {
+    cache.index = 0;
+  }
+
+  const video = list[cache.index];
+  return ensurePlaybackForVideo(video, {
+    creatorId: `${dynamicSearchCreatorId}-${categoryId}`,
+    creatorName: `カテゴリ検索 ${categoryId}`,
+    playlistId: `search-${categoryId}`,
+    playlistTitle: `カテゴリ ${categoryId} 検索結果`,
+    categoryId
+  });
+}
+
+async function getCategorySearchResults(categoryId, forceRefresh) {
+  const now = Date.now();
+  const cache = categorySearchCache.get(categoryId);
+
+  if (cache && !forceRefresh && cache.nextRefreshAt > now && cache.results.length) {
+    cache.nextRefreshAt -= categorySearchShortenMs;
+    return cache.results;
+  }
+
+  const sampledTags = weightedSampleTags(8);
+  let results = await searchVideosByCategory(categoryId, sampledTags);
+
+  if (!results.length && Object.keys(state.interestTags).length === 0) {
+    results = await fetchMostPopularVideos(categoryId);
+  }
+
+  if (!results.length) {
+    results = fallbackVideosByCategory(categoryId);
+  }
+
+  const nextRefreshAt = now + categorySearchRefreshMs;
+  categorySearchCache.set(categoryId, {
+    results,
+    index: 0,
+    nextRefreshAt
+  });
+
+  return results;
+}
+
+function weightedSampleTags(count) {
+  const entries = Object.entries(state.interestTags).filter(([, weight]) => Number.isFinite(weight) && weight > 0);
+  if (!entries.length) {
+    return [];
+  }
+
+  const pool = entries.slice();
+  const sampled = [];
+
+  while (sampled.length < count && pool.length > 0) {
+    const picked = weightedPick(pool);
+    sampled.push(picked);
+    const index = pool.findIndex(([tag]) => tag === picked);
+    pool.splice(index, 1);
+  }
+
+  return sampled;
+}
+
+async function searchVideosByCategory(categoryId, tags) {
+  if (!youtubeApiKey) {
+    return [];
+  }
+
+  const query = tags.length ? tags.join(" OR ") : categoryLabel(categoryId);
+  const params = new URLSearchParams({
+    part: "snippet",
+    type: "video",
+    maxResults: "50",
+    order: "relevance",
+    q: query,
+    videoCategoryId: categoryId,
+    key: youtubeApiKey
+  });
+
+  try {
+    const data = await fetchYouTubeApi(`https://www.googleapis.com/youtube/v3/search?${params}`);
+    const items = data.items || [];
+    const ids = items.map((item) => item.id?.videoId).filter(Boolean);
+    const details = await fetchVideoDetails(ids);
+    const detailMap = new Map(details.map((detail) => [detail.id, detail]));
+
+    return items
+      .map((item) => {
+        const videoId = item.id?.videoId;
+        if (!videoId) {
+          return null;
+        }
+
+        const detail = detailMap.get(videoId);
+        return createVideoEntryFromApiItem(item.snippet, detail, categoryId, tags);
+      })
+      .filter(Boolean);
+  } catch (_error) {
+    return [];
+  }
+}
+
+async function fetchMostPopularVideos(categoryId) {
+  if (!youtubeApiKey) {
+    return [];
+  }
+
+  const params = new URLSearchParams({
+    part: "snippet,contentDetails",
+    chart: "mostPopular",
+    maxResults: "50",
+    videoCategoryId: categoryId,
+    key: youtubeApiKey
+  });
+
+  try {
+    const data = await fetchYouTubeApi(`https://www.googleapis.com/youtube/v3/videos?${params}`);
+    return (data.items || []).map((item) => {
+      const durationSeconds = parseIsoDurationToSeconds(item.contentDetails?.duration || "");
+      return {
+        id: item.id,
+        title: item.snippet?.title || "",
+        channel: item.snippet?.channelTitle || "",
+        channelId: item.snippet?.channelId || "",
+        publishedAt: item.snippet?.publishedAt || "",
+        categoryId: item.snippet?.categoryId || categoryId,
+        tags: sanitizeTags([...(item.snippet?.tags || []), item.snippet?.title || "", categoryLabel(categoryId)]),
+        playlistTitle: "人気動画",
+        durationSeconds
+      };
+    });
+  } catch (_error) {
+    return [];
+  }
+}
+
+function fallbackVideosByCategory(categoryId) {
+  return creatorList
+    .flatMap((creator) => creator.playlists)
+    .flatMap((playlist) => playlist.orderedVideos)
+    .filter((video) => video.categoryId === categoryId)
+    .slice(0, 50)
+    .map((video) => ({ ...video }));
+}
+
+async function fetchVideoDetails(videoIds) {
+  if (!youtubeApiKey || !videoIds.length) {
+    return [];
+  }
+
+  const params = new URLSearchParams({
+    part: "snippet,contentDetails",
+    id: videoIds.join(","),
+    key: youtubeApiKey
+  });
+
+  try {
+    const data = await fetchYouTubeApi(`https://www.googleapis.com/youtube/v3/videos?${params}`);
+    return data.items || [];
+  } catch (_error) {
+    return [];
+  }
+}
+
+function createVideoEntryFromApiItem(snippet, detail, fallbackCategoryId, sampledTags) {
+  const videoId = detail?.id || "";
+  if (!videoId) {
+    return null;
+  }
+
+  const durationSeconds = parseIsoDurationToSeconds(detail?.contentDetails?.duration || "");
+  const tags = sanitizeTags([
+    ...(detail?.snippet?.tags || []),
+    ...(sampledTags || []),
+    snippet?.title || "",
+    snippet?.channelTitle || ""
+  ]);
+
+  return {
+    id: videoId,
+    title: snippet?.title || detail?.snippet?.title || "",
+    channel: snippet?.channelTitle || detail?.snippet?.channelTitle || "",
+    channelId: snippet?.channelId || detail?.snippet?.channelId || "",
+    publishedAt: snippet?.publishedAt || detail?.snippet?.publishedAt || "",
+    categoryId: detail?.snippet?.categoryId || fallbackCategoryId,
+    tags,
+    playlistTitle: `カテゴリ ${detail?.snippet?.categoryId || fallbackCategoryId} 検索`,
+    durationSeconds
+  };
+}
+
+function categoryLabel(categoryId) {
+  return categoryCatalog.find((entry) => entry.id === categoryId)?.label || "おすすめ";
+}
+
+function parseIsoDurationToSeconds(value) {
+  const match = /^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/.exec(value || "");
+  if (!match) {
+    return 0;
+  }
+  const hours = Number(match[1] || 0);
+  const minutes = Number(match[2] || 0);
+  const seconds = Number(match[3] || 0);
+  return hours * 3600 + minutes * 60 + seconds;
+}
+
+function ensureCreator(creatorId, creatorName, categoryId, tags, channelId) {
+  const existing = creatorMap.get(creatorId);
+  if (existing) {
+    return existing;
+  }
+
+  const creator = {
+    id: creatorId,
+    name: creatorName,
+    channelId: channelId || "",
+    defaultCategoryId: categoryId,
+    defaultTags: sanitizeTags(tags),
+    playlists: []
+  };
+
+  creatorList.push(creator);
+  creatorMap.set(creatorId, creator);
+  return creator;
+}
+
+function ensurePlaybackForVideo(video, context) {
+  const creator = ensureCreator(
+    context.creatorId,
+    context.creatorName,
+    context.categoryId,
+    video.tags || [],
+    video.channelId || ""
+  );
+
+  let playlist = playlistMap.get(context.playlistId);
+  if (!playlist) {
+    playlist = normalizePlaylist(
+      creator,
+      {
+        id: context.playlistId,
+        title: context.playlistTitle,
+        popularity: 0,
+        categoryId: context.categoryId,
+        tags: video.tags || [],
+        videos: []
+      },
+      context.categoryId,
+      video.tags || []
+    );
+    creator.playlists.push(playlist);
+    playlistMap.set(playlist.id, playlist);
+  }
+
+  const existingIndex = playlist.orderedVideos.findIndex((entry) => entry.id === video.id);
+  if (existingIndex >= 0) {
+    return { creatorId: creator.id, playlistId: playlist.id, videoIndex: existingIndex };
+  }
+
+  const normalizedVideo = {
+    ...video,
+    channel: video.channel || creator.name,
+    channelId: video.channelId || creator.channelId || "",
+    creatorId: creator.id,
+    playlistId: playlist.id,
+    playlistTitle: playlist.title,
+    playbackIndex: playlist.orderedVideos.length,
+    categoryId: video.categoryId || context.categoryId,
+    tags: sanitizeTags(video.tags || []),
+    durationSeconds: video.durationSeconds || 0
+  };
+
+  playlist.orderedVideos.push(normalizedVideo);
+  videoMap.set(normalizedVideo.id, normalizedVideo);
+  return {
+    creatorId: creator.id,
+    playlistId: playlist.id,
+    videoIndex: normalizedVideo.playbackIndex
+  };
+}
+
+async function getRelatedUploadsPlayback(video) {
+  const channelId = video.channelId || state.currentVideoChannelId;
+  if (!channelId || !youtubeApiKey) {
+    return null;
+  }
+
+  try {
+    const params = new URLSearchParams({ part: "contentDetails", id: channelId, key: youtubeApiKey });
+    const channelData = await fetchYouTubeApi(`https://www.googleapis.com/youtube/v3/channels?${params}`);
+    const uploadsId = channelData.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
+    if (!uploadsId) {
+      return null;
+    }
+
+    const items = await fetchPlaylistItems(uploadsId);
+    if (!items.length) {
+      return null;
+    }
+
+    const randomItem = items[Math.floor(Math.random() * items.length)];
+    const videoId = randomItem.snippet?.resourceId?.videoId;
+    if (!videoId) {
+      return null;
+    }
+
+    const details = await fetchVideoDetails([videoId]);
+    const detail = details[0] || null;
+    const entry = {
+      id: videoId,
+      title: randomItem.snippet?.title || detail?.snippet?.title || "",
+      channel: randomItem.snippet?.channelTitle || detail?.snippet?.channelTitle || "",
+      channelId: randomItem.snippet?.channelId || detail?.snippet?.channelId || channelId,
+      publishedAt: randomItem.snippet?.publishedAt || detail?.snippet?.publishedAt || "",
+      categoryId: detail?.snippet?.categoryId || video.categoryId || defaultCategoryId(),
+      tags: sanitizeTags([...(detail?.snippet?.tags || []), randomItem.snippet?.title || ""]),
+      playlistTitle: "関連アップロード",
+      durationSeconds: parseIsoDurationToSeconds(detail?.contentDetails?.duration || "")
+    };
+
+    return ensurePlaybackForVideo(entry, {
+      creatorId: `uploads-${channelId}`,
+      creatorName: entry.channel || `channel-${channelId}`,
+      playlistId: uploadsId,
+      playlistTitle: "関連アップロード",
+      categoryId: entry.categoryId
+    });
+  } catch (_error) {
+    return null;
+  }
+}
+
+async function ensureVideoMetadata(video) {
+  if (!video || !youtubeApiKey) {
+    return;
+  }
+
+  if (video.tags?.length && video.categoryId && video.channelId && video.durationSeconds > 0) {
+    return;
+  }
+
+  const details = await fetchVideoDetails([video.id]);
+  const detail = details[0];
+  if (!detail?.snippet) {
+    return;
+  }
+
+  video.channelId = video.channelId || detail.snippet.channelId || "";
+  video.categoryId = video.categoryId || detail.snippet.categoryId || defaultCategoryId();
+  video.tags = sanitizeTags([...(video.tags || []), ...(detail.snippet.tags || []), detail.snippet.title || ""]);
+  video.durationSeconds = video.durationSeconds || parseIsoDurationToSeconds(detail.contentDetails?.duration || "");
+
+  state.currentVideoCategoryId = video.categoryId;
+  state.currentVideoChannelId = video.channelId;
+  saveState();
 }
