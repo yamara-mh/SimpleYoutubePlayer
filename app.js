@@ -1,116 +1,14 @@
-const creators = [
-  {
-    id: "youtube-developers",
-    name: "YouTube Developers",
-    defaultCategoryId: "27",
-    defaultTags: ["開発", "学習", "チュートリアル", "YouTube"],
-    playlists: [
-      {
-        id: "yt-dev-intro",
-        title: "開発入門 Part 集",
-        popularity: 980,
-        tags: ["入門", "設定", "操作"],
-        videos: [
-          { id: "M7lc1UVf-VE", title: "Part 3 はじめての設定", publishedAt: "2024-05-03T09:00:00Z" },
-          { id: "XGSy3_Czz8k", title: "Part 2 やさしい操作", publishedAt: "2024-05-02T09:00:00Z" },
-          { id: "ysz5S6PUM-U", title: "Part 1 まずは視聴", publishedAt: "2024-05-01T09:00:00Z" }
-        ]
-      },
-      {
-        id: "yt-dev-events",
-        title: "公開イベントまとめ",
-        popularity: 860,
-        tags: ["イベント", "配信", "ハイライト"],
-        videos: [
-          { id: "jNQXAC9IVRw", title: "春の配信ハイライト", publishedAt: "2024-06-20T09:00:00Z" },
-          { id: "1La4QzGeaaQ", title: "夏の配信ハイライト", publishedAt: "2024-06-19T09:00:00Z" },
-          { id: "LXb3EKWsInQ", title: "秋の配信ハイライト", publishedAt: "2024-06-18T09:00:00Z" }
-        ]
-      },
-      {
-        id: "yt-dev-campus",
-        title: "学びなおしセレクション",
-        popularity: 730,
-        tags: ["復習", "質問", "解説"],
-        videos: [
-          { id: "3fumBcKC6RE", title: "やさしい質問コーナー", publishedAt: "2024-02-10T09:00:00Z" },
-          { id: "aqz-KE-bpKQ", title: "ゆっくり解説タイム", publishedAt: "2024-01-28T09:00:00Z" },
-          { id: "9bZkp7q19f0", title: "復習ダイジェスト", publishedAt: "2024-01-03T09:00:00Z" }
-        ]
-      }
-    ]
-  },
-  {
-    id: "ed-sheeran",
-    name: "Ed Sheeran",
-    defaultCategoryId: "10",
-    defaultTags: ["音楽", "ライブ", "ポップ"],
-    playlists: [
-      {
-        id: "ed-sheeran-diary",
-        title: "Day ライブ日記",
-        popularity: 920,
-        tags: ["日記", "ライブ", "リハーサル"],
-        videos: [
-          { id: "2Vv-BfVoq4g", title: "Day 3 ライブの夜", publishedAt: "2023-09-03T09:00:00Z" },
-          { id: "JGwWNGJdvx8", title: "Day 2 リハーサル", publishedAt: "2023-09-02T09:00:00Z" },
-          { id: "lp-EO5I60KA", title: "Day 1 会場入り", publishedAt: "2023-09-01T09:00:00Z" }
-        ]
-      },
-      {
-        id: "ed-sheeran-picks",
-        title: "人気ステージ集",
-        popularity: 780,
-        tags: ["人気", "ステージ", "ベスト"],
-        videos: [
-          { id: "eVTXPUF4Oz4", title: "ステージ 1", publishedAt: "2024-03-10T09:00:00Z" },
-          { id: "8sgycukafqQ", title: "ステージ 2", publishedAt: "2024-03-17T09:00:00Z" },
-          { id: "kXYiU_JCYtU", title: "ステージ 3", publishedAt: "2024-03-24T09:00:00Z" }
-        ]
-      }
-    ]
-  },
-  {
-    id: "world-trips",
-    name: "World Trips",
-    defaultCategoryId: "19",
-    defaultTags: ["旅行", "散歩", "観光"],
-    playlists: [
-      {
-        id: "world-trips-seasons",
-        title: "四季の旅",
-        popularity: 810,
-        tags: ["春", "夏", "秋", "街歩き"],
-        videos: [
-          { id: "dQw4w9WgXcQ", title: "第3話 秋の街歩き", publishedAt: "2022-11-03T09:00:00Z" },
-          { id: "7QUtEmBT_-w", title: "第2話 夏の海辺", publishedAt: "2022-11-02T09:00:00Z" },
-          { id: "fLexgOxsZu0", title: "第1話 春の公園", publishedAt: "2022-11-01T09:00:00Z" }
-        ]
-      },
-      {
-        id: "world-trips-weekend",
-        title: "週末さんぽ",
-        popularity: 650,
-        tags: ["朝", "昼", "夜", "散歩"],
-        videos: [
-          { id: "60ItHLz5WEA", title: "朝の広場", publishedAt: "2024-04-13T09:00:00Z" },
-          { id: "RgKAFK5djSk", title: "昼の市場", publishedAt: "2024-04-12T09:00:00Z" },
-          { id: "ktvTqknDobU", title: "夜の灯り", publishedAt: "2024-04-11T09:00:00Z" }
-        ]
-      }
-    ]
-  }
-];
-
 const storageKey = "simple-youtube-player-state";
+const categoryCatalogStorageKey = "simple-youtube-player-category-catalog";
 const previewDelayMs = 2000;
 const defaultVolume = 5;
 const youtubeApiKey = ""; // YouTube Data API v3 key
 const categorySearchRefreshMs = 6 * 60 * 60 * 1000;
 const categorySearchShortenMs = 60 * 60 * 1000;
+const categoryCatalogRefreshMs = 30 * 24 * 60 * 60 * 1000;
 const dynamicSearchCreatorId = "__dynamic-search__";
 
-const categoryCatalog = [
+const fallbackCategoryCatalog = [
   { id: "10", label: "音楽" },
   { id: "19", label: "旅行" },
   { id: "20", label: "ゲーム" },
@@ -122,8 +20,9 @@ const categoryCatalog = [
   { id: "27", label: "教育" },
   { id: "28", label: "科学" }
 ];
+let categoryCatalog = fallbackCategoryCatalog.map((entry) => ({ ...entry }));
 
-const creatorList = creators.map(normalizeCreator);
+const creatorList = [];
 const creatorMap = new Map(creatorList.map((creator) => [creator.id, creator]));
 const playlistMap = new Map(
   creatorList.flatMap((creator) => creator.playlists.map((playlist) => [playlist.id, playlist]))
@@ -309,8 +208,23 @@ function setupPlayer() {
   document.addEventListener("visibilitychange", onVisibilityChange);
   window.addEventListener("beforeunload", () => finalizeWatchSession({ ended: false }));
 
-  const initialPlayback = resolveInitialPlayback();
-  queuePlayback(initialPlayback);
+  initializeInitialPlayback().catch(() => {});
+}
+
+async function initializeInitialPlayback() {
+  await refreshCategoryCatalogIfNeeded();
+
+  const storedPlayback = resolveInitialPlayback();
+  if (storedPlayback) {
+    queuePlayback(storedPlayback);
+    return;
+  }
+
+  const categoryId = state.currentVideoCategoryId || defaultCategoryId();
+  const fetchedPlayback = await getCategoryPlayback(categoryId, { preferNext: false, forceRefresh: false });
+  if (fetchedPlayback) {
+    queuePlayback(fetchedPlayback);
+  }
 }
 
 function onYouTubeMessage(event) {
@@ -595,16 +509,7 @@ function hidePreview() {
 }
 
 function resolveInitialPlayback() {
-  const storedPlayback = findStoredPlayback();
-  if (storedPlayback) {
-    return storedPlayback;
-  }
-
-  const firstCreator = creatorList[0];
-  const firstPlaylist = firstCreator?.playlists[0];
-  return firstPlaylist
-    ? { creatorId: firstCreator.id, playlistId: firstPlaylist.id, videoIndex: 0 }
-    : null;
+  return findStoredPlayback();
 }
 
 function findStoredPlayback() {
@@ -887,6 +792,107 @@ async function fetchPlaylistItems(playlistId) {
   const params = new URLSearchParams({ part: "snippet", playlistId, maxResults: "50", key: youtubeApiKey });
   const data = await fetchYouTubeApi(`https://www.googleapis.com/youtube/v3/playlistItems?${params}`);
   return (data.items || []).filter((item) => item.snippet?.resourceId?.kind === "youtube#video");
+}
+
+function cloneCategoryCatalogEntries(entries) {
+  const unique = new Map();
+  for (const entry of entries || []) {
+    const id = String(entry?.id || "").trim();
+    const label = String(entry?.label || "").trim();
+    if (!id || !label) {
+      continue;
+    }
+    if (!unique.has(id)) {
+      unique.set(id, { id, label });
+    }
+  }
+  return Array.from(unique.values());
+}
+
+function readStoredCategoryCatalog() {
+  try {
+    const raw = window.localStorage.getItem(categoryCatalogStorageKey);
+    if (!raw) {
+      return { fetchedAt: 0, entries: [] };
+    }
+
+    const parsed = JSON.parse(raw);
+    const fetchedAt = Number(parsed?.fetchedAt);
+    const entries = cloneCategoryCatalogEntries(parsed?.entries);
+    return {
+      fetchedAt: Number.isFinite(fetchedAt) && fetchedAt > 0 ? fetchedAt : 0,
+      entries
+    };
+  } catch (_error) {
+    return { fetchedAt: 0, entries: [] };
+  }
+}
+
+function writeStoredCategoryCatalog(entries, fetchedAt) {
+  try {
+    window.localStorage.setItem(
+      categoryCatalogStorageKey,
+      JSON.stringify({
+        fetchedAt,
+        entries
+      })
+    );
+  } catch (_error) {
+    // no-op
+  }
+}
+
+async function fetchCategoryCatalogFromApi() {
+  if (!youtubeApiKey) {
+    return [];
+  }
+
+  const params = new URLSearchParams({
+    part: "snippet",
+    regionCode: "JP",
+    key: youtubeApiKey
+  });
+
+  const data = await fetchYouTubeApi(`https://www.googleapis.com/youtube/v3/videoCategories?${params}`);
+  return cloneCategoryCatalogEntries(
+    (data.items || [])
+      .filter((item) => item?.snippet?.assignable !== false)
+      .map((item) => ({
+        id: item.id,
+        label: item.snippet?.title || ""
+      }))
+  );
+}
+
+async function refreshCategoryCatalogIfNeeded(forceRefresh = false) {
+  const now = Date.now();
+  const stored = readStoredCategoryCatalog();
+  if (stored.entries.length) {
+    categoryCatalog = stored.entries;
+  }
+
+  const shouldFetch = forceRefresh || !stored.fetchedAt || now - stored.fetchedAt >= categoryCatalogRefreshMs;
+  if (!shouldFetch || !youtubeApiKey) {
+    if (!categoryCatalog.length) {
+      categoryCatalog = fallbackCategoryCatalog.map((entry) => ({ ...entry }));
+    }
+    return;
+  }
+
+  try {
+    const fetched = await fetchCategoryCatalogFromApi();
+    if (fetched.length) {
+      categoryCatalog = fetched;
+      writeStoredCategoryCatalog(fetched, now);
+      return;
+    }
+  } catch (_error) {
+    // no-op
+  }
+
+  if (!categoryCatalog.length) {
+    categoryCatalog = fallbackCategoryCatalog.map((entry) => ({ ...entry }));
+  }
 }
 
 function defaultCategoryId() {
@@ -1276,12 +1282,7 @@ async function fetchMostPopularVideos(categoryId) {
 }
 
 function fallbackVideosByCategory(categoryId) {
-  return creatorList
-    .flatMap((creator) => creator.playlists)
-    .flatMap((playlist) => playlist.orderedVideos)
-    .filter((video) => video.categoryId === categoryId)
-    .slice(0, 50)
-    .map((video) => ({ ...video }));
+  return [];
 }
 
 async function fetchVideoDetails(videoIds) {
