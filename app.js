@@ -1,27 +1,108 @@
-const videos = [
-  { id: "M7lc1UVf-VE", title: "YouTube プレイヤーデモ", channel: "YouTube Developers", category: "学び" },
-  { id: "dQw4w9WgXcQ", title: "Never Gonna Give You Up", channel: "Rick Astley", category: "音楽" },
-  { id: "9bZkp7q19f0", title: "Gangnam Style", channel: "officialpsy", category: "音楽" },
-  { id: "XGSy3_Czz8k", title: "やさしい紹介動画", channel: "YouTube Spotlight", category: "学び" },
-  { id: "aqz-KE-bpKQ", title: "Sintel Trailer", channel: "Blender Foundation", category: "映画" },
-  { id: "kXYiU_JCYtU", title: "Numb", channel: "Linkin Park", category: "音楽" },
-  { id: "jNQXAC9IVRw", title: "Me at the zoo", channel: "jawed", category: "日常" },
-  { id: "ysz5S6PUM-U", title: "おすすめプレイリスト", channel: "YouTube Viewers", category: "学び" },
-  { id: "2Vv-BfVoq4g", title: "Perfect", channel: "Ed Sheeran", category: "音楽" },
-  { id: "JGwWNGJdvx8", title: "Shape of You", channel: "Ed Sheeran", category: "音楽" },
-  { id: "lp-EO5I60KA", title: "Thinking Out Loud", channel: "Ed Sheeran", category: "音楽" },
-  { id: "LXb3EKWsInQ", title: "自然の風景", channel: "National Geographic", category: "自然" },
-  { id: "eVTXPUF4Oz4", title: "In the End", channel: "Linkin Park", category: "音楽" },
-  { id: "8sgycukafqQ", title: "What I've Done", channel: "Linkin Park", category: "音楽" },
-  { id: "3fumBcKC6RE", title: "ゲーム実況ハイライト", channel: "Nintendo of America", category: "ゲーム" },
-  { id: "1La4QzGeaaQ", title: "宇宙から見た地球", channel: "NASA", category: "ニュース" }
+const creators = [
+  {
+    id: "youtube-developers",
+    name: "YouTube Developers",
+    playlists: [
+      {
+        id: "yt-dev-intro",
+        title: "開発入門 Part 集",
+        popularity: 980,
+        videos: [
+          { id: "M7lc1UVf-VE", title: "Part 3 はじめての設定", publishedAt: "2024-05-03T09:00:00Z" },
+          { id: "XGSy3_Czz8k", title: "Part 2 やさしい操作", publishedAt: "2024-05-02T09:00:00Z" },
+          { id: "ysz5S6PUM-U", title: "Part 1 まずは視聴", publishedAt: "2024-05-01T09:00:00Z" }
+        ]
+      },
+      {
+        id: "yt-dev-events",
+        title: "公開イベントまとめ",
+        popularity: 860,
+        videos: [
+          { id: "jNQXAC9IVRw", title: "春の配信ハイライト", publishedAt: "2024-06-20T09:00:00Z" },
+          { id: "1La4QzGeaaQ", title: "夏の配信ハイライト", publishedAt: "2024-06-19T09:00:00Z" },
+          { id: "LXb3EKWsInQ", title: "秋の配信ハイライト", publishedAt: "2024-06-18T09:00:00Z" }
+        ]
+      },
+      {
+        id: "yt-dev-campus",
+        title: "学びなおしセレクション",
+        popularity: 730,
+        videos: [
+          { id: "3fumBcKC6RE", title: "やさしい質問コーナー", publishedAt: "2024-02-10T09:00:00Z" },
+          { id: "aqz-KE-bpKQ", title: "ゆっくり解説タイム", publishedAt: "2024-01-28T09:00:00Z" },
+          { id: "9bZkp7q19f0", title: "復習ダイジェスト", publishedAt: "2024-01-03T09:00:00Z" }
+        ]
+      }
+    ]
+  },
+  {
+    id: "ed-sheeran",
+    name: "Ed Sheeran",
+    playlists: [
+      {
+        id: "ed-sheeran-diary",
+        title: "Day ライブ日記",
+        popularity: 920,
+        videos: [
+          { id: "2Vv-BfVoq4g", title: "Day 3 ライブの夜", publishedAt: "2023-09-03T09:00:00Z" },
+          { id: "JGwWNGJdvx8", title: "Day 2 リハーサル", publishedAt: "2023-09-02T09:00:00Z" },
+          { id: "lp-EO5I60KA", title: "Day 1 会場入り", publishedAt: "2023-09-01T09:00:00Z" }
+        ]
+      },
+      {
+        id: "ed-sheeran-picks",
+        title: "人気ステージ集",
+        popularity: 780,
+        videos: [
+          { id: "eVTXPUF4Oz4", title: "ステージ 1", publishedAt: "2024-03-10T09:00:00Z" },
+          { id: "8sgycukafqQ", title: "ステージ 2", publishedAt: "2024-03-17T09:00:00Z" },
+          { id: "kXYiU_JCYtU", title: "ステージ 3", publishedAt: "2024-03-24T09:00:00Z" }
+        ]
+      }
+    ]
+  },
+  {
+    id: "world-trips",
+    name: "World Trips",
+    playlists: [
+      {
+        id: "world-trips-seasons",
+        title: "四季の旅",
+        popularity: 810,
+        videos: [
+          { id: "dQw4w9WgXcQ", title: "第3話 秋の街歩き", publishedAt: "2022-11-03T09:00:00Z" },
+          { id: "7QUtEmBT_-w", title: "第2話 夏の海辺", publishedAt: "2022-11-02T09:00:00Z" },
+          { id: "fLexgOxsZu0", title: "第1話 春の公園", publishedAt: "2022-11-01T09:00:00Z" }
+        ]
+      },
+      {
+        id: "world-trips-weekend",
+        title: "週末さんぽ",
+        popularity: 650,
+        videos: [
+          { id: "60ItHLz5WEA", title: "朝の広場", publishedAt: "2024-04-13T09:00:00Z" },
+          { id: "RgKAFK5djSk", title: "昼の市場", publishedAt: "2024-04-12T09:00:00Z" },
+          { id: "ktvTqknDobU", title: "夜の灯り", publishedAt: "2024-04-11T09:00:00Z" }
+        ]
+      }
+    ]
+  }
 ];
 
-const videoMap = new Map(videos.map((video) => [video.id, video]));
 const storageKey = "simple-youtube-player-state";
 const previewDelayMs = 2000;
-const comboWindowMs = 1000;
 const defaultVolume = 5;
+
+const creatorList = creators.map(normalizeCreator);
+const creatorMap = new Map(creatorList.map((creator) => [creator.id, creator]));
+const playlistMap = new Map(
+  creatorList.flatMap((creator) => creator.playlists.map((playlist) => [playlist.id, playlist]))
+);
+const videoMap = new Map(
+  creatorList.flatMap((creator) =>
+    creator.playlists.flatMap((playlist) => playlist.orderedVideos.map((video) => [video.id, video]))
+  )
+);
 
 const elements = {
   previewOverlay: document.getElementById("previewOverlay"),
@@ -33,7 +114,7 @@ const elements = {
   volumeUp: document.getElementById("volumeUp"),
   volumeLevel: document.getElementById("volumeLevel"),
   likeToggle: document.getElementById("likeToggle"),
-  prevButton: document.getElementById("prevButton"),
+  moreButton: document.getElementById("moreButton"),
   nextButton: document.getElementById("nextButton"),
   assistMessage: document.getElementById("assistMessage")
 };
@@ -42,12 +123,126 @@ const state = loadState();
 const player = document.getElementById("player");
 let playerLoaded = false;
 let currentVideo = null;
+let currentPlaylist = null;
+let queuedPlayback = null;
 let previewTimer = null;
-let lastNavigation = { type: null, time: 0 };
 
 wireEvents();
 renderStaticState();
 setupPlayer();
+
+function normalizeCreator(creator) {
+  return {
+    ...creator,
+    playlists: creator.playlists
+      .slice()
+      .sort((left, right) => right.popularity - left.popularity)
+      .map((playlist) => normalizePlaylist(creator, playlist))
+  };
+}
+
+function normalizePlaylist(creator, playlist) {
+  const ordered = resolvePlaylistPlaybackOrder(playlist.videos);
+  return {
+    ...playlist,
+    creatorId: creator.id,
+    creatorName: creator.name,
+    playbackMode: ordered.mode,
+    orderedVideos: ordered.videos.map((video, index) => ({
+      ...video,
+      channel: creator.name,
+      creatorId: creator.id,
+      playlistId: playlist.id,
+      playlistTitle: playlist.title,
+      playbackIndex: index
+    }))
+  };
+}
+
+function resolvePlaylistPlaybackOrder(videos) {
+  const orderedVideos = videos.slice();
+  if (hasIntentionalPublishOrdering(orderedVideos)) {
+    return { videos: orderedVideos, mode: "published-at" };
+  }
+
+  const numberedDirection = resolveNumberedDirection(orderedVideos);
+  if (numberedDirection === "reverse") {
+    return { videos: orderedVideos.reverse(), mode: "numbered" };
+  }
+
+  return { videos: orderedVideos, mode: numberedDirection === "keep" ? "numbered" : "default" };
+}
+
+function hasIntentionalPublishOrdering(videos) {
+  return getDecisionSamples(videos).some((sample) => isMonotonic(sample, readPublishedAt));
+}
+
+function resolveNumberedDirection(videos) {
+  for (const sample of getDecisionSamples(videos)) {
+    const numbers = sample.map((video) => extractSequenceNumber(video.title));
+    if (numbers.some((value) => value === null)) {
+      continue;
+    }
+
+    const firstStep = numbers[1] - numbers[0];
+    const secondStep = numbers[2] - numbers[1];
+    if (Math.abs(firstStep) === 1 && firstStep === secondStep) {
+      return firstStep > 0 ? "keep" : "reverse";
+    }
+  }
+
+  return null;
+}
+
+function getDecisionSamples(videos) {
+  if (videos.length < 3) {
+    return [];
+  }
+
+  const samples = [videos.slice(0, 3)];
+  const tailSample = videos.slice(-3);
+  if (tailSample[0].id !== samples[0][0].id || tailSample[2].id !== samples[0][2].id) {
+    samples.push(tailSample);
+  }
+  return samples;
+}
+
+function isMonotonic(videos, resolver) {
+  const values = videos.map(resolver);
+  if (values.some((value) => !Number.isFinite(value))) {
+    return false;
+  }
+
+  const firstStep = values[1] - values[0];
+  const secondStep = values[2] - values[1];
+  return firstStep !== 0 && secondStep !== 0 && Math.sign(firstStep) === Math.sign(secondStep);
+}
+
+function readPublishedAt(video) {
+  return Date.parse(video.publishedAt);
+}
+
+function extractSequenceNumber(title) {
+  const normalized = normalizeDigits(title);
+  const patterns = [
+    /(?:#|＃)\s*(\d+)/i,
+    /第\s*(\d+)\s*(?:話|回|章)/i,
+    /\b(?:part|day|ep|episode)\s*(\d+)\b/i
+  ];
+
+  for (const pattern of patterns) {
+    const match = normalized.match(pattern);
+    if (match) {
+      return Number.parseInt(match[1], 10);
+    }
+  }
+
+  return null;
+}
+
+function normalizeDigits(text) {
+  return text.replace(/[０-９]/g, (digit) => String.fromCharCode(digit.charCodeAt(0) - 65248));
+}
 
 function setupPlayer() {
   player.addEventListener("load", function () {
@@ -59,16 +254,8 @@ function setupPlayer() {
 
   window.addEventListener("message", onYouTubeMessage);
 
-  const initialVideo = resolveInitialVideo();
-  const knownIndex =
-    state.historyIds[state.historyIndex] === initialVideo.id
-      ? state.historyIndex
-      : state.historyIds.indexOf(initialVideo.id);
-  queueVideo(initialVideo, {
-    recordHistory: knownIndex === -1,
-    historyIndexOverride: knownIndex === -1 ? null : knownIndex,
-    assistText: "最初の動画を準備しています"
-  });
+  const initialPlayback = resolveInitialPlayback();
+  queuePlayback(initialPlayback, { assistText: "最初の再生リストを準備しています" });
 }
 
 function onYouTubeMessage(event) {
@@ -98,15 +285,29 @@ function onYouTubeMessage(event) {
 function handlePlayerStateChange(stateCode) {
   if (stateCode === 1) {
     state.isPlaying = true;
-    elements.playToggle.textContent = "⏸️止める";
+    elements.playToggle.innerHTML = "⏸️<br>停止";
     saveState();
     return;
   }
 
-  if (stateCode === 2 || stateCode === 0) {
+  if (stateCode === 2) {
     state.isPlaying = false;
-    elements.playToggle.textContent = "▶️再生";
+    elements.playToggle.innerHTML = "▶️<br>再生";
     saveState();
+    return;
+  }
+
+  if (stateCode === 0) {
+    state.isPlaying = false;
+    elements.playToggle.innerHTML = "▶️<br>再生";
+    saveState();
+
+    const nextPlayback = findNextSequentialPlayback(getCurrentPlayback());
+    if (nextPlayback) {
+      queuePlayback(nextPlayback, { assistText: "この再生リストの続きを準備しています" });
+    } else {
+      setAssistMessage("この投稿者の再生リストを見終わりました");
+    }
   }
 }
 
@@ -139,13 +340,14 @@ function wireEvents() {
   elements.volumeDown.addEventListener("click", () => changeVolume(-1));
   elements.volumeUp.addEventListener("click", () => changeVolume(1));
   elements.likeToggle.addEventListener("click", toggleLike);
-  elements.prevButton.addEventListener("click", playPreviousVideo);
+  elements.moreButton.addEventListener("click", playMoreVideos);
   elements.nextButton.addEventListener("click", playNextVideo);
 }
 
 function renderStaticState() {
   elements.volumeLevel.textContent = String(state.volume);
   elements.playToggle.innerHTML = state.isPlaying ? "⏸️<br>停止" : "▶️<br>再生";
+  renderCurrentVideo();
 }
 
 function togglePlayback() {
@@ -184,101 +386,99 @@ function toggleLike() {
   const liked = new Set(state.likedVideoIds);
   if (liked.has(currentVideo.id)) {
     liked.delete(currentVideo.id);
-    decrementChannelLike(currentVideo.channel);
     setAssistMessage("好みから外しました");
   } else {
     liked.add(currentVideo.id);
-    incrementChannelLike(currentVideo.channel);
     setAssistMessage("この動画を好みに入れました");
   }
 
   state.likedVideoIds = Array.from(liked);
-  maybeAutoSubscribe(currentVideo.channel);
   renderCurrentVideo();
-  updateTrendMessage();
   saveState();
 }
 
-function playPreviousVideo() {
-  if (state.historyIds.length <= 1) {
-    setAssistMessage("まだ前の動画がありません");
+function playMoreVideos() {
+  if (queuedPlayback) {
+    const alternatePlayback = findAlternativePlaylistPlayback(queuedPlayback);
+    if (!alternatePlayback) {
+      setAssistMessage("ほかの再生リストがありません");
+      return;
+    }
+
+    queuePlayback(alternatePlayback, { assistText: "別の再生リストを開いています" });
     return;
   }
 
-  const likedOnly = isRecentNavigation("next");
-  const previousIndex = findPreviousHistoryIndex(likedOnly);
-  if (previousIndex === -1) {
-    setAssistMessage(likedOnly ? "好みの動画履歴が見つかりません" : "これ以上戻れません");
-    lastNavigation = { type: "prev", time: Date.now() };
+  const nextPlayback = findNextSequentialPlayback(getCurrentPlayback());
+  if (!nextPlayback) {
+    setAssistMessage("この投稿者の続きがありません");
     return;
   }
 
-  lastNavigation = { type: "prev", time: Date.now() };
-  const previousVideo = videoMap.get(state.historyIds[previousIndex]);
-  queueVideo(previousVideo, {
-    recordHistory: false,
-    historyIndexOverride: previousIndex,
-    assistText: likedOnly ? "好みの動画だけをさかのぼります" : "前に見た動画へ戻ります"
-  });
+  queuePlayback(nextPlayback, { assistText: "今の再生リストの続きを準備しています" });
 }
 
 function playNextVideo() {
-  const forceDifferentGenre = isRecentNavigation("next");
-  const nextVideo = pickNextVideo(forceDifferentGenre);
-  lastNavigation = { type: "next", time: Date.now() };
-  queueVideo(nextVideo, {
-    recordHistory: true,
-    historyIndexOverride: null,
-    assistText: forceDifferentGenre ? "いつもと違うジャンルを探しています" : "見やすいおすすめ動画を選んでいます"
-  });
+  if (queuedPlayback) {
+    startQueuedPlayback();
+    setAssistMessage("すぐに再生します");
+    return;
+  }
+
+  const nextCreatorPlayback = findNextCreatorPlayback(getCurrentPlayback());
+  if (!nextCreatorPlayback) {
+    setAssistMessage("次に見る投稿者がありません");
+    return;
+  }
+
+  queuePlayback(nextCreatorPlayback, { assistText: "別の投稿者の動画を探しています" });
 }
 
-function queueVideo(video, options) {
+function queuePlayback(playback, options) {
+  const video = getVideoForPlayback(playback);
   if (!video) {
     return;
   }
 
-  window.clearTimeout(previewTimer);
-  showPreview(video, options.assistText);
-  previewTimer = window.setTimeout(() => {
-    startVideo(video, options);
-  }, previewDelayMs);
+  clearPreviewTimer();
+  queuedPlayback = playback;
+  showPreview(video, options?.assistText || "まもなく再生します");
+  previewTimer = window.setTimeout(startQueuedPlayback, previewDelayMs);
 }
 
-function startVideo(video, options) {
-  currentVideo = video;
-  hidePreview();
-
-  if (typeof options.historyIndexOverride === "number") {
-    state.historyIndex = options.historyIndexOverride;
-  } else if (options.recordHistory) {
-    const nextHistory = state.historyIds.slice(0, state.historyIndex + 1);
-    nextHistory.push(video.id);
-    state.historyIds = nextHistory;
-    state.historyIndex = state.historyIds.length - 1;
-  }
-
-  state.lastVideoId = video.id;
-  state.lastWatchedAt[video.id] = Date.now();
-  state.viewCounts[video.category] = (state.viewCounts[video.category] || 0) + 1;
-  renderCurrentVideo();
-  updateTrendMessage();
-  saveState();
-
-  loadYouTubeVideo(video.id);
-  applyVolume();
-}
-
-function renderCurrentVideo() {
-  if (!currentVideo) {
+function startQueuedPlayback() {
+  const playback = queuedPlayback;
+  if (!playback) {
     return;
   }
 
-  const liked = state.likedVideoIds.includes(currentVideo.id);
-  elements.likeToggle.innerHTML = liked ? "💖<br>取消" : "❤️<br>好み";
+  clearPreviewTimer();
+  queuedPlayback = null;
+
+  const playlist = playlistMap.get(playback.playlistId);
+  const video = playlist?.orderedVideos[playback.videoIndex];
+  if (!playlist || !video) {
+    return;
+  }
+
+  currentPlaylist = playlist;
+  currentVideo = video;
+  state.currentCreatorId = playback.creatorId;
+  state.currentPlaylistId = playlist.id;
+  state.currentVideoId = video.id;
+  saveState();
+
+  hidePreview();
+  renderCurrentVideo();
+  loadYouTubeVideo(video.id);
+  applyVolume();
+  setAssistMessage(`${playlist.creatorName} の「${playlist.title}」を再生しています`);
 }
 
-function updateTrendMessage() {}
+function renderCurrentVideo() {
+  const liked = currentVideo ? state.likedVideoIds.includes(currentVideo.id) : false;
+  elements.likeToggle.innerHTML = liked ? "💖<br>取消" : "❤️<br>好み";
+}
 
 function setAssistMessage(text) {
   if (!elements.assistMessage) {
@@ -290,7 +490,7 @@ function setAssistMessage(text) {
 function showPreview(video, assistText) {
   elements.previewImage.src = thumbnailUrl(video.id);
   elements.previewTitle.textContent = video.title;
-  elements.previewMeta.textContent = `${video.channel} ・ ${video.category}`;
+  elements.previewMeta.textContent = `${video.channel} ・ ${video.playlistTitle}`;
   elements.previewOverlay.classList.remove("hidden");
   setAssistMessage(assistText);
 }
@@ -299,103 +499,153 @@ function hidePreview() {
   elements.previewOverlay.classList.add("hidden");
 }
 
-function resolveInitialVideo() {
-  const knownVideo = videoMap.get(state.lastVideoId);
-  if (knownVideo) {
-    return knownVideo;
+function resolveInitialPlayback() {
+  const storedPlayback = findStoredPlayback();
+  if (storedPlayback) {
+    return storedPlayback;
   }
 
-  return videos[0];
+  const firstCreator = creatorList[0];
+  const firstPlaylist = firstCreator?.playlists[0];
+  return firstPlaylist
+    ? { creatorId: firstCreator.id, playlistId: firstPlaylist.id, videoIndex: 0 }
+    : null;
 }
 
-function pickNextVideo(forceDifferentGenre) {
-  const currentCategory = currentVideo ? currentVideo.category : null;
-  const topCategory = getTopCategory();
-
-  const scored = videos
-    .filter((video) => !currentVideo || video.id !== currentVideo.id)
-    .map((video) => ({
-      video,
-      score: scoreVideo(video, { currentCategory, topCategory, forceDifferentGenre })
-    }))
-    .sort((left, right) => right.score - left.score);
-
-  return scored[0]?.video || videos[0];
-}
-
-function scoreVideo(video, context) {
-  let score = 10;
-  const likedChannelCount = state.likedChannels[video.channel] || 0;
-  const categoryViews = state.viewCounts[video.category] || 0;
-  const recentPenalty = state.lastWatchedAt[video.id] ? 6 : 0;
-
-  score += likedChannelCount * 4;
-  score += categoryViews * 2;
-  score += state.subscribedChannels.includes(video.channel) ? 6 : 0;
-  score -= recentPenalty;
-
-  if (context.forceDifferentGenre) {
-    if (video.category !== context.currentCategory && video.category !== context.topCategory) {
-      score += 12;
-    } else {
-      score -= 12;
-    }
-  } else if (context.currentCategory && video.category === context.currentCategory) {
-    score += 3;
-  }
-
-  return score + Math.random();
-}
-
-function findPreviousHistoryIndex(likedOnly) {
-  for (let index = state.historyIndex - 1; index >= 0; index -= 1) {
-    const videoId = state.historyIds[index];
-    if (!likedOnly || state.likedVideoIds.includes(videoId)) {
-      return index;
+function findStoredPlayback() {
+  if (state.currentPlaylistId && state.currentVideoId) {
+    const playlist = playlistMap.get(state.currentPlaylistId);
+    const videoIndex = playlist?.orderedVideos.findIndex((video) => video.id === state.currentVideoId);
+    if (playlist && videoIndex >= 0) {
+      return { creatorId: playlist.creatorId, playlistId: playlist.id, videoIndex };
     }
   }
 
-  return -1;
-}
-
-function incrementChannelLike(channel) {
-  state.likedChannels[channel] = (state.likedChannels[channel] || 0) + 1;
-}
-
-function decrementChannelLike(channel) {
-  const nextValue = (state.likedChannels[channel] || 0) - 1;
-  if (nextValue > 0) {
-    state.likedChannels[channel] = nextValue;
-    return;
+  if (state.currentVideoId) {
+    const video = videoMap.get(state.currentVideoId);
+    if (video) {
+      return { creatorId: video.creatorId, playlistId: video.playlistId, videoIndex: video.playbackIndex };
+    }
   }
 
-  delete state.likedChannels[channel];
-}
-
-function maybeAutoSubscribe(channel) {
-  if ((state.likedChannels[channel] || 0) < 3 || state.subscribedChannels.includes(channel)) {
-    return;
+  if (state.currentCreatorId) {
+    const creator = creatorMap.get(state.currentCreatorId);
+    const playlist = creator?.playlists[0];
+    if (playlist) {
+      return { creatorId: creator.id, playlistId: playlist.id, videoIndex: 0 };
+    }
   }
 
-  state.subscribedChannels = [...state.subscribedChannels, channel];
-  setAssistMessage(`${channel} を自動で登録しました`);
+  return null;
 }
 
-function isRecentNavigation(type) {
-  return lastNavigation.type === type && Date.now() - lastNavigation.time <= comboWindowMs;
+function getCurrentPlayback() {
+  if (!currentVideo || !currentPlaylist) {
+    return null;
+  }
+
+  return {
+    creatorId: currentPlaylist.creatorId,
+    playlistId: currentPlaylist.id,
+    videoIndex: currentVideo.playbackIndex
+  };
 }
 
-function getTopCategory() {
-  const categories = Object.entries(state.viewCounts);
-  categories.sort((left, right) => right[1] - left[1]);
-  return categories[0]?.[0] || "";
+function getVideoForPlayback(playback) {
+  if (!playback) {
+    return null;
+  }
+
+  const playlist = playlistMap.get(playback.playlistId);
+  return playlist?.orderedVideos[playback.videoIndex] || null;
+}
+
+function findNextSequentialPlayback(playback) {
+  if (!playback) {
+    return null;
+  }
+
+  const playlist = playlistMap.get(playback.playlistId);
+  if (!playlist) {
+    return null;
+  }
+
+  if (playback.videoIndex + 1 < playlist.orderedVideos.length) {
+    return {
+      creatorId: playlist.creatorId,
+      playlistId: playlist.id,
+      videoIndex: playback.videoIndex + 1
+    };
+  }
+
+  const creator = creatorMap.get(playlist.creatorId);
+  const playlistIndex = creator?.playlists.findIndex((entry) => entry.id === playlist.id) ?? -1;
+  const nextPlaylist = playlistIndex >= 0 ? creator.playlists[playlistIndex + 1] : null;
+  if (!nextPlaylist) {
+    return null;
+  }
+
+  return { creatorId: creator.id, playlistId: nextPlaylist.id, videoIndex: 0 };
+}
+
+function findAlternativePlaylistPlayback(playback) {
+  if (!playback) {
+    return null;
+  }
+
+  const creator = creatorMap.get(playback.creatorId);
+  if (!creator || creator.playlists.length < 2) {
+    return null;
+  }
+
+  const currentIndex = creator.playlists.findIndex((playlist) => playlist.id === playback.playlistId);
+  for (let offset = 1; offset < creator.playlists.length; offset += 1) {
+    const nextPlaylist = creator.playlists[(currentIndex + offset) % creator.playlists.length];
+    if (nextPlaylist.id !== playback.playlistId) {
+      return { creatorId: creator.id, playlistId: nextPlaylist.id, videoIndex: 0 };
+    }
+  }
+
+  return null;
+}
+
+function findNextCreatorPlayback(playback) {
+  if (!creatorList.length) {
+    return null;
+  }
+
+  if (!playback) {
+    const firstCreator = creatorList[0];
+    return {
+      creatorId: firstCreator.id,
+      playlistId: firstCreator.playlists[0].id,
+      videoIndex: 0
+    };
+  }
+
+  const creatorIndex = creatorList.findIndex((creator) => creator.id === playback.creatorId);
+  if (creatorIndex === -1) {
+    return null;
+  }
+
+  const nextCreator = creatorList[(creatorIndex + 1) % creatorList.length];
+  return {
+    creatorId: nextCreator.id,
+    playlistId: nextCreator.playlists[0].id,
+    videoIndex: 0
+  };
+}
+
+function clearPreviewTimer() {
+  if (previewTimer !== null) {
+    window.clearTimeout(previewTimer);
+    previewTimer = null;
+  }
 }
 
 function thumbnailUrl(videoId) {
   return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
 }
-
-
 
 function loadState() {
   try {
@@ -416,15 +666,11 @@ function saveState() {
 
 function createDefaultState() {
   return {
-    historyIds: [],
-    historyIndex: -1,
+    currentCreatorId: "",
+    currentPlaylistId: "",
+    currentVideoId: "",
     isPlaying: false,
-    lastVideoId: "",
-    lastWatchedAt: {},
-    likedChannels: {},
     likedVideoIds: [],
-    subscribedChannels: [],
-    viewCounts: {},
     volume: defaultVolume
   };
 }
