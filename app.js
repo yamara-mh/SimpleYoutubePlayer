@@ -92,6 +92,7 @@ const creators = [
 const storageKey = "simple-youtube-player-state";
 const previewDelayMs = 2000;
 const defaultVolume = 5;
+const youtubeApiKey = ""; // Set your YouTube Data API v3 key here to enable channel playlist fetching
 
 const creatorList = creators.map(normalizeCreator);
 const creatorMap = new Map(creatorList.map((creator) => [creator.id, creator]));
@@ -125,6 +126,8 @@ let currentVideo = null;
 let currentPlaylist = null;
 let queuedPlayback = null;
 let previewTimer = null;
+const creatorPageState = new Map(); // Maps creatorId → { nextPageToken: string | null, allLoaded: boolean }
+let isFetchingPlaylists = false;
 
 wireEvents();
 renderStaticState();
@@ -389,14 +392,38 @@ function toggleLike() {
   saveState();
 }
 
-function playMoreVideos() {
+async function playMoreVideos() {
   if (queuedPlayback) {
     const alternatePlayback = findAlternativePlaylistPlayback(queuedPlayback);
-    if (!alternatePlayback) {
+    if (alternatePlayback) {
+      queuePlayback(alternatePlayback);
       return;
     }
 
-    queuePlayback(alternatePlayback);
+    if (isFetchingPlaylists) {
+      return;
+    }
+    isFetchingPlaylists = true;
+
+    const creator = creatorMap.get(queuedPlayback.creatorId);
+    if (creator) {
+      try {
+        if (creator.playlists.length === 0) {
+          await loadUploadsPlaylist(creator);
+        } else {
+          await loadMorePlaylists(creator);
+        }
+      } finally {
+        isFetchingPlaylists = false;
+      }
+
+      const newAlternatePlayback = findAlternativePlaylistPlayback(queuedPlayback);
+      if (newAlternatePlayback) {
+        queuePlayback(newAlternatePlayback);
+      }
+    } else {
+      isFetchingPlaylists = false;
+    }
     return;
   }
 
@@ -573,19 +600,23 @@ function findAlternativePlaylistPlayback(playback) {
   }
 
   const creator = creatorMap.get(playback.creatorId);
-  if (!creator || creator.playlists.length < 2) {
+  if (!creator || creator.playlists.length === 0) {
     return null;
   }
 
   const currentIndex = creator.playlists.findIndex((playlist) => playlist.id === playback.playlistId);
-  for (let offset = 1; offset < creator.playlists.length; offset += 1) {
-    const nextPlaylist = creator.playlists[(currentIndex + offset) % creator.playlists.length];
-    if (nextPlaylist.id !== playback.playlistId) {
-      return { creatorId: creator.id, playlistId: nextPlaylist.id, videoIndex: 0 };
-    }
+  const nextIndex = currentIndex + 1;
+
+  if (nextIndex < creator.playlists.length) {
+    return { creatorId: creator.id, playlistId: creator.playlists[nextIndex].id, videoIndex: 0 };
   }
 
-  return null;
+  const pageState = getCreatorPageState(creator.id);
+  if (pageState.allLoaded) {
+    return { creatorId: creator.id, playlistId: creator.playlists[0].id, videoIndex: 0 };
+  }
+
+  return null; // Signal: more playlists can be fetched
 }
 
 function findNextCreatorPlayback(playback) {
@@ -656,4 +687,103 @@ function createDefaultState() {
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
+}
+
+function getCreatorPageState(creatorId) {
+  if (!creatorPageState.has(creatorId)) {
+    const creator = creatorMap.get(creatorId);
+    creatorPageState.set(creatorId, { nextPageToken: null, allLoaded: !creator?.channelId });
+  }
+  return creatorPageState.get(creatorId);
+}
+
+function addPlaylistToCreator(creator, playlistData) {
+  const normalized = normalizePlaylist(creator, playlistData);
+  creator.playlists.push(normalized);
+  playlistMap.set(normalized.id, normalized);
+  for (const video of normalized.orderedVideos) {
+    videoMap.set(video.id, video);
+  }
+}
+
+async function loadUploadsPlaylist(creator) {
+  if (!creator.channelId || !youtubeApiKey) {
+    getCreatorPageState(creator.id).allLoaded = true;
+    return;
+  }
+
+  try {
+    const params = new URLSearchParams({ part: "contentDetails", id: creator.channelId, key: youtubeApiKey });
+    const channelData = await fetchYouTubeApi(`https://www.googleapis.com/youtube/v3/channels?${params}`);
+    const uploadsId = channelData.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
+    if (!uploadsId) {
+      getCreatorPageState(creator.id).allLoaded = true;
+      return;
+    }
+
+    const videoItems = await fetchPlaylistItems(uploadsId);
+    const videos = videoItems.map((item) => ({
+      id: item.snippet.resourceId.videoId,
+      title: item.snippet.title,
+      publishedAt: item.snippet.publishedAt
+    }));
+
+    addPlaylistToCreator(creator, { id: uploadsId, title: creator.name, popularity: 0, videos });
+  } catch (_error) {
+    // Silently treat as done to prevent retrying on next press
+  }
+
+  getCreatorPageState(creator.id).allLoaded = true;
+}
+
+async function loadMorePlaylists(creator) {
+  if (!creator.channelId || !youtubeApiKey) {
+    getCreatorPageState(creator.id).allLoaded = true;
+    return;
+  }
+
+  const pageState = getCreatorPageState(creator.id);
+
+  try {
+    const params = new URLSearchParams({
+      part: "snippet",
+      channelId: creator.channelId,
+      maxResults: "50",
+      key: youtubeApiKey
+    });
+    if (pageState.nextPageToken) {
+      params.set("pageToken", pageState.nextPageToken);
+    }
+
+    const playlistsData = await fetchYouTubeApi(`https://www.googleapis.com/youtube/v3/playlists?${params}`);
+
+    for (const item of playlistsData.items || []) {
+      const videoItems = await fetchPlaylistItems(item.id);
+      const videos = videoItems.map((v) => ({
+        id: v.snippet.resourceId.videoId,
+        title: v.snippet.title,
+        publishedAt: v.snippet.publishedAt
+      }));
+      addPlaylistToCreator(creator, { id: item.id, title: item.snippet.title, popularity: 0, videos });
+    }
+
+    pageState.nextPageToken = playlistsData.nextPageToken || null;
+    pageState.allLoaded = !playlistsData.nextPageToken;
+  } catch (_error) {
+    pageState.allLoaded = true;
+  }
+}
+
+async function fetchYouTubeApi(url) {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`YouTube API request failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+async function fetchPlaylistItems(playlistId) {
+  const params = new URLSearchParams({ part: "snippet", playlistId, maxResults: "50", key: youtubeApiKey });
+  const data = await fetchYouTubeApi(`https://www.googleapis.com/youtube/v3/playlistItems?${params}`);
+  return (data.items || []).filter((item) => item.snippet?.resourceId?.kind === "youtube#video");
 }
