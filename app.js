@@ -115,8 +115,7 @@ const elements = {
   volumeLevel: document.getElementById("volumeLevel"),
   likeToggle: document.getElementById("likeToggle"),
   moreButton: document.getElementById("moreButton"),
-  nextButton: document.getElementById("nextButton"),
-  assistMessage: document.getElementById("assistMessage")
+  nextButton: document.getElementById("nextButton")
 };
 
 const state = loadState();
@@ -255,7 +254,7 @@ function setupPlayer() {
   window.addEventListener("message", onYouTubeMessage);
 
   const initialPlayback = resolveInitialPlayback();
-  queuePlayback(initialPlayback, { assistText: "最初の再生リストを準備しています" });
+  queuePlayback(initialPlayback);
 }
 
 function onYouTubeMessage(event) {
@@ -304,9 +303,7 @@ function handlePlayerStateChange(stateCode) {
 
     const nextPlayback = findNextSequentialPlayback(getCurrentPlayback());
     if (nextPlayback) {
-      queuePlayback(nextPlayback, { assistText: "この再生リストの続きを準備しています" });
-    } else {
-      setAssistMessage("この投稿者の再生リストを見終わりました");
+      queuePlayback(nextPlayback);
     }
   }
 }
@@ -357,12 +354,10 @@ function togglePlayback() {
 
   if (state.isPlaying) {
     sendPlayerCommand("pauseVideo");
-    setAssistMessage("動画を止めました");
     return;
   }
 
   sendPlayerCommand("playVideo");
-  setAssistMessage("動画を再生しています");
 }
 
 function changeVolume(delta) {
@@ -370,7 +365,6 @@ function changeVolume(delta) {
   applyVolume();
   renderStaticState();
   saveState();
-  setAssistMessage(`音量を ${state.volume} にしました`);
 }
 
 function applyVolume() {
@@ -386,10 +380,8 @@ function toggleLike() {
   const liked = new Set(state.likedVideoIds);
   if (liked.has(currentVideo.id)) {
     liked.delete(currentVideo.id);
-    setAssistMessage("好みから外しました");
   } else {
     liked.add(currentVideo.id);
-    setAssistMessage("この動画を好みに入れました");
   }
 
   state.likedVideoIds = Array.from(liked);
@@ -401,40 +393,36 @@ function playMoreVideos() {
   if (queuedPlayback) {
     const alternatePlayback = findAlternativePlaylistPlayback(queuedPlayback);
     if (!alternatePlayback) {
-      setAssistMessage("ほかの再生リストがありません");
       return;
     }
 
-    queuePlayback(alternatePlayback, { assistText: "別の再生リストを開いています" });
+    queuePlayback(alternatePlayback);
     return;
   }
 
   const nextPlayback = findNextSequentialPlayback(getCurrentPlayback());
   if (!nextPlayback) {
-    setAssistMessage("この投稿者の続きがありません");
     return;
   }
 
-  queuePlayback(nextPlayback, { assistText: "今の再生リストの続きを準備しています" });
+  queuePlayback(nextPlayback);
 }
 
 function playNextVideo() {
   if (queuedPlayback) {
     startQueuedPlayback();
-    setAssistMessage("すぐに再生します");
     return;
   }
 
   const nextCreatorPlayback = findNextCreatorPlayback(getCurrentPlayback());
   if (!nextCreatorPlayback) {
-    setAssistMessage("次に見る投稿者がありません");
     return;
   }
 
-  queuePlayback(nextCreatorPlayback, { assistText: "別の投稿者の動画を探しています" });
+  queuePlayback(nextCreatorPlayback);
 }
 
-function queuePlayback(playback, options) {
+function queuePlayback(playback) {
   const video = getVideoForPlayback(playback);
   if (!video) {
     return;
@@ -442,7 +430,7 @@ function queuePlayback(playback, options) {
 
   clearPreviewTimer();
   queuedPlayback = playback;
-  showPreview(video, options?.assistText || "まもなく再生します");
+  showPreview(video);
   previewTimer = window.setTimeout(startQueuedPlayback, previewDelayMs);
 }
 
@@ -472,7 +460,6 @@ function startQueuedPlayback() {
   renderCurrentVideo();
   loadYouTubeVideo(video.id);
   applyVolume();
-  setAssistMessage(`${playlist.creatorName} の「${playlist.title}」を再生しています`);
 }
 
 function renderCurrentVideo() {
@@ -480,19 +467,11 @@ function renderCurrentVideo() {
   elements.likeToggle.innerHTML = liked ? "💖<br>取消" : "❤️<br>好み";
 }
 
-function setAssistMessage(text) {
-  if (!elements.assistMessage) {
-    return;
-  }
-  elements.assistMessage.textContent = text || "";
-}
-
-function showPreview(video, assistText) {
+function showPreview(video) {
   elements.previewImage.src = thumbnailUrl(video.id);
   elements.previewTitle.textContent = video.title;
   elements.previewMeta.textContent = `${video.channel} ・ ${video.playlistTitle}`;
   elements.previewOverlay.classList.remove("hidden");
-  setAssistMessage(assistText);
 }
 
 function hidePreview() {
