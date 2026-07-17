@@ -1,6 +1,3 @@
-const GOOGLE_CLIENT_ID = window.APP_CONFIG?.GOOGLE_CLIENT_ID || "";
-const YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3";
-
 const videos = [
   { id: "M7lc1UVf-VE", title: "YouTube プレイヤーデモ", channel: "YouTube Developers", category: "学び" },
   { id: "dQw4w9WgXcQ", title: "Never Gonna Give You Up", channel: "Rick Astley", category: "音楽" },
@@ -35,15 +32,9 @@ const elements = {
   volumeDown: document.getElementById("volumeDown"),
   volumeUp: document.getElementById("volumeUp"),
   volumeLevel: document.getElementById("volumeLevel"),
-  captionToggle: document.getElementById("captionToggle"),
   likeToggle: document.getElementById("likeToggle"),
   prevButton: document.getElementById("prevButton"),
   nextButton: document.getElementById("nextButton"),
-  loginSection: document.getElementById("loginSection"),
-  userSection: document.getElementById("userSection"),
-  loginButton: document.getElementById("loginButton"),
-  logoutButton: document.getElementById("logoutButton"),
-  userDisplayName: document.getElementById("userDisplayName"),
   assistMessage: document.getElementById("assistMessage")
 };
 
@@ -53,13 +44,9 @@ let playerLoaded = false;
 let currentVideo = null;
 let previewTimer = null;
 let lastNavigation = { type: null, time: 0 };
-let googleTokenClient = null;
-let googleAccessToken = null;
-let captionTimer = null;
 
 wireEvents();
 renderStaticState();
-renderLoginState();
 setupPlayer();
 
 function setupPlayer() {
@@ -100,7 +87,6 @@ function onYouTubeMessage(event) {
     playerLoaded = true;
     sendPlayerCommand("addEventListener", ["onStateChange"]);
     applyVolume();
-    applyCaptions();
     return;
   }
 
@@ -143,8 +129,6 @@ function loadYouTubeVideo(videoId) {
     controls: 1,
     playsinline: 1,
     rel: 0,
-    cc_lang_pref: "ja",
-    cc_load_policy: state.captionsEnabled ? 1 : 0,
     fs: 1
   });
   player.src = `https://www.youtube.com/embed/${videoId}?${params}`;
@@ -154,18 +138,13 @@ function wireEvents() {
   elements.playToggle.addEventListener("click", togglePlayback);
   elements.volumeDown.addEventListener("click", () => changeVolume(-1));
   elements.volumeUp.addEventListener("click", () => changeVolume(1));
-  elements.captionToggle.addEventListener("click", toggleCaptions);
   elements.likeToggle.addEventListener("click", toggleLike);
   elements.prevButton.addEventListener("click", playPreviousVideo);
   elements.nextButton.addEventListener("click", playNextVideo);
-  elements.loginButton.addEventListener("click", requestGoogleLogin);
-  elements.logoutButton.addEventListener("click", requestGoogleLogout);
 }
 
 function renderStaticState() {
   elements.volumeLevel.textContent = String(state.volume);
-  elements.captionToggle.innerHTML = state.captionsEnabled ? "💬<br>字幕ON" : "💬<br>字幕OFF";
-  elements.captionToggle.setAttribute("aria-pressed", String(state.captionsEnabled));
   elements.playToggle.innerHTML = state.isPlaying ? "⏸️<br>停止" : "▶️<br>再生";
 }
 
@@ -195,37 +174,6 @@ function changeVolume(delta) {
 function applyVolume() {
   elements.volumeLevel.textContent = String(state.volume);
   sendPlayerCommand("setVolume", [Math.round((state.volume / 9) * 100)]);
-}
-
-function toggleCaptions() {
-  state.captionsEnabled = !state.captionsEnabled;
-  applyCaptions();
-  renderStaticState();
-  saveState();
-  setAssistMessage(state.captionsEnabled ? "日本語字幕を表示します" : "字幕を消しました");
-}
-
-function applyCaptions() {
-  if (!playerLoaded) {
-    return;
-  }
-
-  clearTimeout(captionTimer);
-
-  if (state.captionsEnabled) {
-    sendPlayerCommand("loadModule", ["captions"]);
-    // Wait for the captions module to finish initializing before setting the track
-    captionTimer = setTimeout(function () {
-      // Prefer Japanese captions; auto-translate other-language captions to Japanese
-      sendPlayerCommand("setOption", ["captions", "track", {
-        languageCode: "ja",
-        translationLanguage: { languageCode: "ja" }
-      }]);
-    }, 300);
-    return;
-  }
-
-  sendPlayerCommand("unloadModule", ["captions"]);
 }
 
 function toggleLike() {
@@ -319,7 +267,6 @@ function startVideo(video, options) {
 
   loadYouTubeVideo(video.id);
   applyVolume();
-  applyCaptions();
 }
 
 function renderCurrentVideo() {
@@ -469,7 +416,6 @@ function saveState() {
 
 function createDefaultState() {
   return {
-    captionsEnabled: true,
     historyIds: [],
     historyIndex: -1,
     isPlaying: false,
@@ -485,142 +431,4 @@ function createDefaultState() {
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
-}
-
-function renderLoginState() {
-  const loggedIn = Boolean(googleAccessToken);
-  elements.loginSection.classList.toggle("hidden", loggedIn);
-  elements.userSection.classList.toggle("hidden", !loggedIn);
-}
-
-function requestGoogleLogin() {
-  if (!window.google?.accounts?.oauth2) {
-    setAssistMessage("Googleログイン画面を準備中です。もう一度お試しください");
-    return;
-  }
-  if (!GOOGLE_CLIENT_ID) {
-    setAssistMessage("GOOGLE_CLIENT_ID が設定されていません");
-    return;
-  }
-  if (!googleTokenClient) {
-    googleTokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: GOOGLE_CLIENT_ID,
-      scope: "https://www.googleapis.com/auth/youtube.readonly",
-      callback: handleGoogleAuthCallback
-    });
-  }
-  googleTokenClient.requestAccessToken({ prompt: "select_account" });
-}
-
-function requestGoogleLogout() {
-  if (!window.google?.accounts?.oauth2) {
-    setAssistMessage("Googleログアウトの準備中です。少し待ってからお試しください");
-    return;
-  }
-  if (!googleAccessToken) {
-    setAssistMessage("現在ログインしていません");
-    return;
-  }
-  google.accounts.oauth2.revoke(googleAccessToken, () => {
-    googleAccessToken = null;
-    googleTokenClient = null;
-    state.subscribedChannels = [];
-    saveState();
-    elements.userDisplayName.textContent = "";
-    renderLoginState();
-    setAssistMessage("ログアウトしました");
-  });
-}
-
-async function handleGoogleAuthCallback(response) {
-  if (response.error) {
-    setAssistMessage("ログインに失敗しました");
-    return;
-  }
-  googleAccessToken = response.access_token;
-  renderLoginState();
-  await fetchGoogleUserInfo();
-  await loadYouTubeSubscriptions();
-}
-
-async function fetchGoogleUserInfo() {
-  try {
-    const response = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
-      headers: { Authorization: "Bearer " + googleAccessToken }
-    });
-    const user = await response.json();
-    elements.userDisplayName.textContent = `${user.name} さん`;
-  } catch (_error) {
-    elements.userDisplayName.textContent = "ログイン中";
-  }
-}
-
-async function loadYouTubeSubscriptions() {
-  setAssistMessage("登録チャンネルを読み込んでいます…");
-  try {
-    const authHeader = { Authorization: "Bearer " + googleAccessToken };
-    const subsResponse = await fetch(
-      `${YOUTUBE_API_BASE}/subscriptions?part=snippet&mine=true&maxResults=20`,
-      { headers: authHeader }
-    );
-    const subsData = await subsResponse.json();
-    if (!subsData.items || subsData.items.length === 0) {
-      setAssistMessage("登録チャンネルが見つかりませんでした");
-      return;
-    }
-
-    const channelIds = subsData.items.map((item) => item.snippet.resourceId.channelId);
-    const channelsResponse = await fetch(
-      `${YOUTUBE_API_BASE}/channels?part=snippet,contentDetails&id=${channelIds.join(",")}`,
-      { headers: authHeader }
-    );
-    const channelsData = await channelsResponse.json();
-
-    const fetchPromises = (channelsData.items || []).map((channel) => fetchChannelVideos(channel));
-    const videoArrays = await Promise.all(fetchPromises);
-    const newVideos = videoArrays.flat();
-
-    const existingIds = new Set(videos.map((v) => v.id));
-    const uniqueNewVideos = newVideos.filter((v) => !existingIds.has(v.id));
-    uniqueNewVideos.forEach((v) => {
-      videos.push(v);
-      videoMap.set(v.id, v);
-    });
-
-    const channelNames = (channelsData.items || []).map((c) => c.snippet.title);
-    state.subscribedChannels = [...new Set([...state.subscribedChannels, ...channelNames])];
-    saveState();
-
-    setAssistMessage(
-      uniqueNewVideos.length > 0
-        ? `${uniqueNewVideos.length} 件の新しい動画を追加しました`
-        : "新しい動画はありませんでした"
-    );
-  } catch (_error) {
-    setAssistMessage("動画の読み込みに失敗しました");
-  }
-}
-
-async function fetchChannelVideos(channel) {
-  const playlistId = channel.contentDetails?.relatedPlaylists?.uploads;
-  if (!playlistId) {
-    return [];
-  }
-  try {
-    const response = await fetch(
-      `${YOUTUBE_API_BASE}/playlistItems?part=snippet&playlistId=${playlistId}&maxResults=5`,
-      { headers: { Authorization: "Bearer " + googleAccessToken } }
-    );
-    const data = await response.json();
-    return (data.items || [])
-      .filter((item) => item.snippet?.resourceId?.videoId)
-      .map((item) => ({
-        id: item.snippet.resourceId.videoId,
-        title: item.snippet.title,
-        channel: channel.snippet.title,
-        category: "登録チャンネル"
-      }));
-  } catch (_error) {
-    return [];
-  }
 }

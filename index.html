@@ -5,22 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>やさしい YouTube プレイヤー</title>
     <link rel="stylesheet" href="./styles.css" />
-    <script src="https://accounts.google.com/gsi/client"></script>
-    <script src="./config.js"></script>
   </head>
   <body>
     <main class="app-shell">
-      <header class="auth-header" aria-label="ログイン状態">
-        <div id="loginSection" class="auth-guest">
-          <p class="auth-description">Googleアカウントでログインすると登録チャンネルの動画が楽しめます</p>
-          <button id="loginButton" class="auth-button" type="button">🔑 Googleでログイン</button>
-        </div>
-        <div id="userSection" class="auth-user hidden">
-          <span id="userDisplayName" class="auth-name"></span>
-          <button id="logoutButton" class="auth-button auth-button-sm" type="button">ログアウト</button>
-        </div>
-      </header>
-
       <section class="player-section" aria-label="動画プレイヤー">
         <div class="player-frame">
           <iframe id="player" class="player-embed" title="ユーチューブプレイヤー" allow="autoplay; fullscreen" allowfullscreen></iframe>
@@ -49,7 +36,6 @@
             </div>
           </div>
 
-          <button id="captionToggle" class="control-button" type="button">💬<br>字幕❌</button>
           <button id="likeToggle" class="control-button" type="button">❤️<br>好み</button>
           <button id="prevButton" class="control-button" type="button">⏪<br>前</button>
           <button id="nextButton" class="control-button primary-button" type="button">📺<br>次</button>
