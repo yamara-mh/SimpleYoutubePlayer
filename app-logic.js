@@ -1125,13 +1125,27 @@ async function fetchMostPopularVideos(categoryId) {
     return [];
   }
 
-  const params = new URLSearchParams({
+  if (categoryId) {
+    const results = await fetchMostPopularVideosRaw(categoryId);
+    if (results.length) {
+      return results;
+    }
+  }
+
+  return fetchMostPopularVideosRaw(null);
+}
+
+async function fetchMostPopularVideosRaw(categoryId) {
+  const paramObj = {
     part: "snippet,contentDetails",
     chart: "mostPopular",
     maxResults: "50",
-    videoCategoryId: categoryId,
     key: youtubeApiKey
-  });
+  };
+  if (categoryId) {
+    paramObj.videoCategoryId = categoryId;
+  }
+  const params = new URLSearchParams(paramObj);
 
   try {
     const data = await fetchYouTubeApi(`https://www.googleapis.com/youtube/v3/videos?${params}`);
@@ -1143,8 +1157,8 @@ async function fetchMostPopularVideos(categoryId) {
         channel: item.snippet?.channelTitle || "",
         channelId: item.snippet?.channelId || "",
         publishedAt: item.snippet?.publishedAt || "",
-        categoryId: item.snippet?.categoryId || categoryId,
-        tags: sanitizeTags([...(item.snippet?.tags || []), item.snippet?.title || "", categoryLabel(categoryId)]),
+        categoryId: item.snippet?.categoryId || categoryId || defaultCategoryId(),
+        tags: sanitizeTags([...(item.snippet?.tags || []), item.snippet?.title || "", categoryLabel(item.snippet?.categoryId || categoryId)]),
         playlistTitle: "人気動画",
         durationSeconds
       };
