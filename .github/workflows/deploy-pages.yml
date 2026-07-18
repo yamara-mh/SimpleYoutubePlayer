@@ -28,6 +28,23 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
+      - name: Generate app config
+        env:
+          YOUTUBE_API_KEY: ${{ vars.YOUTUBE_API_KEY || secrets.YOUTUBE_API_KEY }}
+        run: |
+          if [ -z "$YOUTUBE_API_KEY" ]; then
+            echo "YOUTUBE_API_KEY is not configured"
+            exit 1
+          fi
+
+          python3 - <<'PY'
+          import json
+          import os
+
+          with open("app-config.js", "w", encoding="utf-8") as handle:
+              handle.write(f"window.YOUTUBE_API_KEY = {json.dumps(os.environ['YOUTUBE_API_KEY'])};\n")
+          PY
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:

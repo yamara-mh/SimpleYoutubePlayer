@@ -1,27 +1,13 @@
-const videos = [
-  { id: "M7lc1UVf-VE", title: "YouTube プレイヤーデモ", channel: "YouTube Developers", category: "学び" },
-  { id: "dQw4w9WgXcQ", title: "Never Gonna Give You Up", channel: "Rick Astley", category: "音楽" },
-  { id: "9bZkp7q19f0", title: "Gangnam Style", channel: "officialpsy", category: "音楽" },
-  { id: "XGSy3_Czz8k", title: "やさしい紹介動画", channel: "YouTube Spotlight", category: "学び" },
-  { id: "aqz-KE-bpKQ", title: "Sintel Trailer", channel: "Blender Foundation", category: "映画" },
-  { id: "kXYiU_JCYtU", title: "Numb", channel: "Linkin Park", category: "音楽" },
-  { id: "jNQXAC9IVRw", title: "Me at the zoo", channel: "jawed", category: "日常" },
-  { id: "ysz5S6PUM-U", title: "おすすめプレイリスト", channel: "YouTube Viewers", category: "学び" },
-  { id: "2Vv-BfVoq4g", title: "Perfect", channel: "Ed Sheeran", category: "音楽" },
-  { id: "JGwWNGJdvx8", title: "Shape of You", channel: "Ed Sheeran", category: "音楽" },
-  { id: "lp-EO5I60KA", title: "Thinking Out Loud", channel: "Ed Sheeran", category: "音楽" },
-  { id: "LXb3EKWsInQ", title: "自然の風景", channel: "National Geographic", category: "自然" },
-  { id: "eVTXPUF4Oz4", title: "In the End", channel: "Linkin Park", category: "音楽" },
-  { id: "8sgycukafqQ", title: "What I've Done", channel: "Linkin Park", category: "音楽" },
-  { id: "3fumBcKC6RE", title: "ゲーム実況ハイライト", channel: "Nintendo of America", category: "ゲーム" },
-  { id: "1La4QzGeaaQ", title: "宇宙から見た地球", channel: "NASA", category: "ニュース" }
-];
-
-const videoMap = new Map(videos.map((video) => [video.id, video]));
 const storageKey = "simple-youtube-player-state";
 const previewDelayMs = 2000;
 const comboWindowMs = 1000;
 const defaultVolume = 5;
+const youtubeApiKey = window.YOUTUBE_API_KEY || "";
+const youtubeRegionCode = "JP";
+const youtubeMaxResults = 15;
+
+let videos = [];
+let videoMap = new Map();
 
 const elements = {
   previewOverlay: document.getElementById("previewOverlay"),
@@ -45,7 +31,62 @@ let lastNavigation = { type: null, time: 0 };
 
 wireEvents();
 renderStaticState();
-setupPlayer();
+bootstrap();
+
+async function bootstrap() {
+  try {
+    await loadMostPopularVideos();
+    setupPlayer();
+  } catch (error) {
+    console.error(error);
+    showLoadError("人気動画の読み込みに失敗しました");
+  }
+}
+
+async function loadMostPopularVideos() {
+  if (!youtubeApiKey) {
+    throw new Error("YOUTUBE_API_KEY is not configured");
+  }
+
+  const params = new URLSearchParams({
+    part: "snippet",
+    chart: "mostPopular",
+    maxResults: String(youtubeMaxResults),
+    regionCode: youtubeRegionCode,
+    key: youtubeApiKey
+  });
+
+  const response = await fetch(`https://www.googleapis.com/youtube/v3/videos?${params}`);
+  if (!response.ok) {
+    throw new Error(`YouTube API request failed: ${response.status}`);
+  }
+
+  const data = await response.json();
+  videos = (data.items || [])
+    .map((item) => mapVideoItem(item))
+    .filter(Boolean);
+  videoMap = new Map(videos.map((video) => [video.id, video]));
+
+  if (!videos.length) {
+    throw new Error("YouTube API returned no videos");
+  }
+}
+
+function mapVideoItem(item) {
+  const id = item?.id;
+  const snippet = item?.snippet;
+
+  if (!id || !snippet?.title) {
+    return null;
+  }
+
+  return {
+    id,
+    title: snippet.title,
+    channel: snippet.channelTitle || "YouTube",
+    category: snippet.categoryId || "unknown"
+  };
+}
 
 function setupPlayer() {
   player.addEventListener("load", function () {
@@ -252,9 +293,16 @@ function setAssistMessage(_text) {}
 function showPreview(video, assistText) {
   elements.previewImage.src = thumbnailUrl(video.id);
   elements.previewTitle.textContent = video.title;
-  elements.previewMeta.textContent = `${video.channel} ・ ${video.category}`;
+  elements.previewMeta.textContent = video.channel;
   elements.previewOverlay.classList.remove("hidden");
   setAssistMessage(assistText);
+}
+
+function showLoadError(message) {
+  elements.previewImage.removeAttribute("src");
+  elements.previewTitle.textContent = message;
+  elements.previewMeta.textContent = "YOUTUBE_API_KEY を確認してください";
+  elements.previewOverlay.classList.remove("hidden");
 }
 
 function hidePreview() {
@@ -262,6 +310,10 @@ function hidePreview() {
 }
 
 function resolveInitialVideo() {
+  if (!videos.length) {
+    return null;
+  }
+
   const knownVideo = videoMap.get(state.lastVideoId);
   if (knownVideo) {
     return knownVideo;
@@ -271,6 +323,10 @@ function resolveInitialVideo() {
 }
 
 function pickNextVideo(forceDifferentGenre) {
+  if (!videos.length) {
+    return null;
+  }
+
   const currentCategory = currentVideo ? currentVideo.category : null;
   const topCategory = getTopCategory();
 
