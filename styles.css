@@ -25,17 +25,21 @@ button {
 
 .app-shell {
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: minmax(0, 4fr) minmax(0, 1fr);
+  height: 100vh;
   min-height: 100vh;
 }
 
 .player-section {
+  display: flex;
+  min-height: 0;
   padding: 1rem 1rem 0;
 }
 
 .player-frame {
   position: relative;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   border-radius: 28px;
   overflow: hidden;
   background: #0c1524;
@@ -92,13 +96,16 @@ button {
 }
 
 .control-section {
+  display: flex;
+  min-height: 0;
   padding: 0.6rem 1rem 1rem;
-  min-height: 20vh;
 }
 
 .controls-row {
+  flex: 1;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
   gap: 0.9rem;
   min-height: 0;
 }
@@ -162,17 +169,10 @@ button {
   font-size: clamp(1.5rem, 3vw, 3rem);
 }
 
-@media (max-width: 1200px) {
-  .app-shell {
-    grid-template-rows: minmax(60vh, 1fr) auto;
-  }
-
-  .control-section {
-    padding-bottom: 1rem;
-  }
-
+@media (orientation: landscape) {
   .controls-row {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: minmax(0, 1fr);
   }
 }
 
@@ -184,14 +184,5 @@ button {
   .preview-overlay {
     grid-template-columns: 1fr;
     padding: 1.2rem;
-  }
-
-  .controls-row {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .control-button {
-    min-height: 5.75rem;
-    font-size: 1.35rem;
   }
 }
