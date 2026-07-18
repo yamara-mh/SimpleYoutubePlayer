@@ -25,16 +25,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Generate runtime config
-        env:
-          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-        run: |
-          cat <<EOF > config.js
-          window.APP_CONFIG = {
-            GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID}"
-          };
-          EOF
-
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
