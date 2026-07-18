@@ -2,7 +2,7 @@ const storageKey = "simple-youtube-player-state";
 const previewDelayMs = 2000;
 const comboWindowMs = 1000;
 const defaultVolume = 5;
-const youtubeApiKey = window.YOUTUBE_API_KEY || "";
+const youtubeApiKey = secrets.YOUTUBE_API_KEY || "";
 const youtubeRegionCode = "JP";
 const youtubeMaxResults = 15;
 
