@@ -2,9 +2,18 @@ const storageKey = "simple-youtube-player-state";
 const previewDelayMs = 2000;
 const comboWindowMs = 1000;
 const defaultVolume = 5;
-const youtubeApiKey = new URL(window.location.href).searchParams.get("YOUTUBE_API_KEY") || "";
 const youtubeRegionCode = "JP";
 const youtubeMaxResults = 15;
+
+// OAuth 2.0 implicit flow — client_id is a public identifier (not a secret).
+// client_secret is intentionally absent; the implicit flow does not require it.
+const oauthClientId = "431396271681-q2krn0mfqbp3i0nbhkamtb3sfvjqu93t.apps.googleusercontent.com";
+const oauthRedirectUri = `${location.origin}${location.pathname}`;
+const oauthScope = "https://www.googleapis.com/auth/youtube.readonly";
+// sessionStorage keys — tab-scoped, cleared when the tab or browser is closed.
+const oauthStateKey = "syp_oauth_state";
+const oauthTokenKey = "syp_access_token";
+const oauthTokenExpiryKey = "syp_token_expiry";
 
 let videos = [];
 let videoMap = new Map();
@@ -34,31 +43,47 @@ renderStaticState();
 bootstrap();
 
 async function bootstrap() {
+  // Process an OAuth callback if the URL fragment contains an access token.
+  handleOAuthCallback();
+
+  const accessToken = getStoredToken();
+  if (!accessToken) {
+    // Not authenticated — redirect to Google OAuth consent page.
+    initiateOAuth();
+    return;
+  }
+
   try {
-    await loadMostPopularVideos();
+    await loadMostPopularVideos(accessToken);
     setupPlayer();
   } catch (error) {
     console.error(error);
-    showLoadError("人気動画の読み込みに失敗しました");
+    if (error.status === 401 || error.status === 403) {
+      // Token is invalid or revoked — clear it and re-authenticate.
+      clearStoredToken();
+      initiateOAuth();
+    } else {
+      showLoadError("人気動画の読み込みに失敗しました");
+    }
   }
 }
 
-async function loadMostPopularVideos() {
-  if (!youtubeApiKey) {
-    throw new Error("YOUTUBE_API_KEY is not configured");
-  }
-
+async function loadMostPopularVideos(accessToken) {
   const params = new URLSearchParams({
     part: "snippet",
     chart: "mostPopular",
     maxResults: String(youtubeMaxResults),
-    regionCode: youtubeRegionCode,
-    key: youtubeApiKey
+    regionCode: youtubeRegionCode
   });
 
-  const response = await fetch(`https://www.googleapis.com/youtube/v3/videos?${params}`);
+  const response = await fetch(`https://www.googleapis.com/youtube/v3/videos?${params}`, {
+    headers: { Authorization: "Bearer " + accessToken }
+  });
+
   if (!response.ok) {
-    throw new Error(`YouTube API request failed: ${response.status}`);
+    const err = new Error(`YouTube API request failed: ${response.status}`);
+    err.status = response.status;
+    throw err;
   }
 
   const data = await response.json();
@@ -301,7 +326,7 @@ function showPreview(video, assistText) {
 function showLoadError(message) {
   elements.previewImage.removeAttribute("src");
   elements.previewTitle.textContent = message;
-  elements.previewMeta.textContent = "URL パラメータで YOUTUBE_API_KEY を指定してください";
+  elements.previewMeta.textContent = "しばらく経ってからページを再読み込みしてください";
   elements.previewOverlay.classList.remove("hidden");
 }
 
@@ -376,7 +401,115 @@ function thumbnailUrl(videoId) {
   return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
 }
 
+// ---------------------------------------------------------------------------
+// OAuth 2.0 — implicit flow (no backend required, no client_secret needed)
+// ---------------------------------------------------------------------------
 
+/**
+ * Generate a cryptographically random hex string to use as the OAuth state
+ * parameter. This prevents CSRF attacks by verifying the round-trip value.
+ */
+function generateOAuthState() {
+  const array = new Uint8Array(16);
+  crypto.getRandomValues(array);
+  return Array.from(array, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * Redirect the browser to the Google OAuth 2.0 consent/authorisation page.
+ * A fresh state value is written to sessionStorage before the redirect so it
+ * can be verified when Google calls back.
+ */
+function initiateOAuth() {
+  const state = generateOAuthState();
+  sessionStorage.setItem(oauthStateKey, state);
+
+  const params = new URLSearchParams({
+    client_id: oauthClientId,
+    redirect_uri: oauthRedirectUri,
+    response_type: "token",
+    scope: oauthScope,
+    state: state,
+    include_granted_scopes: "true"
+  });
+
+  window.location.href = "https://accounts.google.com/o/oauth2/v2/auth?" + params;
+}
+
+/**
+ * Inspect the URL fragment for an OAuth callback, validate it, and store the
+ * access token in sessionStorage. The fragment is immediately removed from the
+ * URL so the token is never recorded in browser history or sent as a Referer.
+ *
+ * Returns true if a valid token was found and stored, false otherwise.
+ */
+function handleOAuthCallback() {
+  const fragment = window.location.hash.slice(1);
+  if (!fragment) {
+    return false;
+  }
+
+  const params = new URLSearchParams(fragment);
+
+  // Strip the fragment from the URL immediately regardless of outcome.
+  history.replaceState(null, "", window.location.pathname + window.location.search);
+
+  const error = params.get("error");
+  if (error) {
+    console.error("OAuth error:", error);
+    return false;
+  }
+
+  const token = params.get("access_token");
+  const state = params.get("state");
+  const expiresIn = Number(params.get("expires_in") || 0);
+
+  if (!token || !state) {
+    return false;
+  }
+
+  // Validate state to guard against CSRF.
+  const expectedState = sessionStorage.getItem(oauthStateKey);
+  sessionStorage.removeItem(oauthStateKey);
+
+  if (!expectedState || state !== expectedState) {
+    console.error("OAuth state mismatch — possible CSRF attack, ignoring token");
+    return false;
+  }
+
+  storeToken(token, expiresIn);
+  return true;
+}
+
+/**
+ * Return the stored access token if one exists and has not expired, or null.
+ */
+function getStoredToken() {
+  const token = sessionStorage.getItem(oauthTokenKey);
+  const expiry = Number(sessionStorage.getItem(oauthTokenExpiryKey) || 0);
+  if (token && Date.now() < expiry) {
+    return token;
+  }
+  clearStoredToken();
+  return null;
+}
+
+/**
+ * Persist the access token and its expiry time in sessionStorage.
+ * A 60-second safety margin is applied so tokens are not used right at the
+ * edge of their validity window.
+ */
+function storeToken(token, expiresIn) {
+  const expiry = Date.now() + Math.max(0, expiresIn - 60) * 1000;
+  sessionStorage.setItem(oauthTokenKey, token);
+  sessionStorage.setItem(oauthTokenExpiryKey, String(expiry));
+}
+
+/** Remove any stored token and its expiry from sessionStorage. */
+function clearStoredToken() {
+  sessionStorage.removeItem(oauthTokenKey);
+  sessionStorage.removeItem(oauthTokenExpiryKey);
+}
 
 function loadState() {
   try {
