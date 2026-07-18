@@ -31,6 +31,7 @@ jobs:
 
       - name: Generate app config
         env:
+          APP_CONFIG_VERSION: ${{ github.run_id }}.${{ github.run_attempt }}
           YOUTUBE_API_KEY: ${{ vars.YOUTUBE_API_KEY || secrets.YOUTUBE_API_KEY }}
         run: |
           if [ -z "$YOUTUBE_API_KEY" ]; then
@@ -44,6 +45,16 @@ jobs:
 
           with open("app-config.js", "w", encoding="utf-8") as handle:
               handle.write(f"window.YOUTUBE_API_KEY = {json.dumps(os.environ['YOUTUBE_API_KEY'])};\n")
+          PY
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+
+          version = os.environ["APP_CONFIG_VERSION"]
+          html = Path("index.html").read_text(encoding="utf-8")
+          html = html.replace('./app-config.js"', f'./app-config.js?v={version}"')
+          Path("index.html").write_text(html, encoding="utf-8")
           PY
 
       - name: Upload Pages artifact
