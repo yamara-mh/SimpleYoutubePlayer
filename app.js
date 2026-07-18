@@ -17,6 +17,9 @@ const oauthTokenExpiryKey = "syp_token_expiry";
 
 let videos = [];
 let videoMap = new Map();
+let accessToken = "";
+let queuedVideo = null;
+let channelPlaylists = null;
 
 const elements = {
   previewOverlay: document.getElementById("previewOverlay"),
@@ -29,7 +32,7 @@ const elements = {
   volumeDown: document.getElementById("volumeDown"),
   volumeUp: document.getElementById("volumeUp"),
   volumeLevel: document.getElementById("volumeLevel"),
-  prevButton: document.getElementById("prevButton"),
+  moreButton: document.getElementById("moreButton"),
   nextButton: document.getElementById("nextButton")
 };
 
@@ -48,14 +51,14 @@ async function bootstrap() {
   // Process an OAuth callback if the URL fragment contains an access token.
   handleOAuthCallback();
 
-  const accessToken = getStoredToken();
+  accessToken = getStoredToken();
   if (!accessToken) {
     showAuthPrompt();
     return;
   }
 
   try {
-    await loadMostPopularVideos(accessToken);
+    await loadMostPopularVideos();
     setupPlayer();
   } catch (error) {
     console.error(error);
@@ -69,7 +72,7 @@ async function bootstrap() {
   }
 }
 
-async function loadMostPopularVideos(accessToken) {
+async function loadMostPopularVideos() {
   const params = new URLSearchParams({
     part: "snippet",
     chart: "mostPopular",
@@ -112,6 +115,7 @@ function mapVideoItem(item) {
     id,
     title: snippet.title,
     channel: snippet.channelTitle || "YouTube",
+    channelId: snippet.channelId || "",
     category: snippet.categoryId || "unknown"
   };
 }
@@ -206,7 +210,7 @@ function wireEvents() {
   elements.playToggle.addEventListener("click", togglePlayback);
   elements.volumeDown.addEventListener("click", () => changeVolume(-1));
   elements.volumeUp.addEventListener("click", () => changeVolume(1));
-  elements.prevButton.addEventListener("click", playPreviousVideo);
+  elements.moreButton.addEventListener("click", playMoreVideos);
   elements.nextButton.addEventListener("click", playNextVideo);
 }
 
@@ -251,26 +255,235 @@ function applyVolume() {
   sendPlayerCommand("setVolume", [Math.round((state.volume / 9) * 100)]);
 }
 
-function playPreviousVideo() {
-  if (state.historyIds.length <= 1) {
-    setAssistMessage("まだ前の動画がありません");
+async function playMoreVideos() {
+  const sourceVideo = queuedVideo || currentVideo;
+  if (!sourceVideo?.channelId) {
     return;
   }
 
-  const previousIndex = state.historyIndex - 1;
-  if (previousIndex === -1) {
-    setAssistMessage("これ以上戻れません");
-    lastNavigation = { type: "prev", time: Date.now() };
+  try {
+    await ensureChannelPlaylists(sourceVideo.channelId);
+    const playlist =
+      queuedVideo
+        ? await findAnotherPlaylist(queuedVideo.playlistId)
+        : await findNextPlaylistVideo(sourceVideo.playlistId);
+
+    if (!playlist) {
+      setAssistMessage("再生できる動画がありません");
+      return;
+    }
+
+    queueVideo(playlist.video, {
+      recordHistory: true,
+      historyIndexOverride: null,
+      assistText: playlist.isDifferent
+        ? "別の再生リストを準備しています"
+        : "次の動画を準備しています"
+    });
+  } catch (error) {
+    console.error(error);
+    setAssistMessage("再生リストの読み込みに失敗しました");
+  }
+}
+
+async function ensureChannelPlaylists(channelId) {
+  if (channelPlaylists?.channelId === channelId) {
     return;
   }
 
-  lastNavigation = { type: "prev", time: Date.now() };
-  const previousVideo = videoMap.get(state.historyIds[previousIndex]);
-  queueVideo(previousVideo, {
-    recordHistory: false,
-    historyIndexOverride: previousIndex,
-    assistText: "前に見た動画へ戻ります"
+  const channel = await fetchYouTube("channels", {
+    part: "contentDetails",
+    id: channelId
   });
+  const uploadsPlaylistId = channel.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
+  channelPlaylists = {
+    channelId,
+    groups: [],
+    nextPageToken: "",
+    allPublicPlaylistsLoaded: false,
+    uploadsPlaylistId: uploadsPlaylistId || "",
+    uploadsGroup: null,
+    playlistCursor: 0
+  };
+  await loadMorePublicPlaylists();
+}
+
+async function loadMorePublicPlaylists() {
+  if (!channelPlaylists || channelPlaylists.allPublicPlaylistsLoaded) {
+    return;
+  }
+
+  const data = await fetchYouTube("playlists", {
+    part: "snippet",
+    channelId: channelPlaylists.channelId,
+    maxResults: String(youtubeMaxResults),
+    ...(channelPlaylists.nextPageToken && { pageToken: channelPlaylists.nextPageToken })
+  });
+  const knownIds = new Set(channelPlaylists.groups.map((group) => group.id));
+  for (const item of data.items || []) {
+    if (item.id && !knownIds.has(item.id)) {
+      channelPlaylists.groups.push(createPlaylistGroup(item.id, item.snippet?.title || "再生リスト"));
+    }
+  }
+  channelPlaylists.nextPageToken = data.nextPageToken || "";
+  channelPlaylists.allPublicPlaylistsLoaded = !channelPlaylists.nextPageToken;
+}
+
+function createPlaylistGroup(id, title) {
+  return { id, title, videos: [], nextPageToken: "", loaded: false, exhausted: false, cursor: 0 };
+}
+
+async function findNextPlaylistVideo(playlistId) {
+  const currentGroup = findPlaylistGroup(playlistId);
+  if (currentGroup) {
+    const video = await takePlaylistVideo(currentGroup);
+    if (video) {
+      return { video, isDifferent: false };
+    }
+  }
+  return findAnotherPlaylist(playlistId);
+}
+
+async function findAnotherPlaylist(excludedPlaylistId) {
+  while (true) {
+    const group = await findNextAvailablePublicPlaylist(excludedPlaylistId);
+    if (group) {
+      const video = await takePlaylistVideo(group);
+      if (video) {
+        return { video, isDifferent: true };
+      }
+      continue;
+    }
+
+    if (!channelPlaylists.allPublicPlaylistsLoaded) {
+      await loadMorePublicPlaylists();
+      continue;
+    }
+
+    const uploads = await getUploadsPlaylist();
+    if (uploads) {
+      const video = await takePlaylistVideo(uploads);
+      if (video) {
+        return { video, isDifferent: true };
+      }
+    }
+
+    resetPublicPlaylistTraversal();
+    const restartedGroup = await findNextAvailablePublicPlaylist("");
+    if (restartedGroup) {
+      const video = await takePlaylistVideo(restartedGroup);
+      if (video) {
+        return { video, isDifferent: true };
+      }
+    }
+    if (channelPlaylists.uploadsGroup?.videos.length) {
+      channelPlaylists.uploadsGroup.cursor = 0;
+      const video = await takePlaylistVideo(channelPlaylists.uploadsGroup);
+      if (video) {
+        return { video, isDifferent: true };
+      }
+    }
+    return null;
+  }
+}
+
+async function findNextAvailablePublicPlaylist(excludedPlaylistId) {
+  const groups = channelPlaylists.groups;
+  for (let offset = 0; offset < groups.length; offset += 1) {
+    const index = (channelPlaylists.playlistCursor + offset) % groups.length;
+    const group = groups[index];
+    if (
+      group.id !== excludedPlaylistId &&
+      (group.cursor < group.videos.length || !group.exhausted)
+    ) {
+      channelPlaylists.playlistCursor = (index + 1) % groups.length;
+      return group;
+    }
+  }
+  return null;
+}
+
+function findPlaylistGroup(playlistId) {
+  if (!playlistId || !channelPlaylists) {
+    return null;
+  }
+  if (channelPlaylists.uploadsGroup?.id === playlistId) {
+    return channelPlaylists.uploadsGroup;
+  }
+  return channelPlaylists.groups.find((group) => group.id === playlistId) || null;
+}
+
+async function getUploadsPlaylist() {
+  if (!channelPlaylists.uploadsPlaylistId) {
+    return null;
+  }
+  if (!channelPlaylists.uploadsGroup) {
+    channelPlaylists.uploadsGroup = createPlaylistGroup(
+      channelPlaylists.uploadsPlaylistId,
+      "すべての動画"
+    );
+  }
+  return channelPlaylists.uploadsGroup.exhausted ? null : channelPlaylists.uploadsGroup;
+}
+
+async function takePlaylistVideo(group) {
+  while (group.cursor >= group.videos.length && !group.exhausted) {
+    await loadPlaylistVideos(group);
+  }
+  return group.videos[group.cursor++] || null;
+}
+
+async function loadPlaylistVideos(group) {
+  const data = await fetchYouTube("playlistItems", {
+    part: "snippet,contentDetails",
+    playlistId: group.id,
+    maxResults: String(youtubeMaxResults),
+    ...(group.nextPageToken && { pageToken: group.nextPageToken })
+  });
+  group.videos.push(
+    ...(data.items || []).map((item) => mapPlaylistItem(item, group)).filter(Boolean)
+  );
+  group.nextPageToken = data.nextPageToken || "";
+  group.loaded = true;
+  group.exhausted = !group.nextPageToken;
+}
+
+function mapPlaylistItem(item, group) {
+  const id = item?.contentDetails?.videoId;
+  const snippet = item?.snippet;
+  if (!id || !snippet?.title || snippet.title === "Deleted video" || snippet.title === "Private video") {
+    return null;
+  }
+  const video = {
+    id,
+    title: snippet.title,
+    channel: snippet.videoOwnerChannelTitle || snippet.channelTitle || "YouTube",
+    channelId: snippet.videoOwnerChannelId || snippet.channelId || channelPlaylists.channelId,
+    category: "playlist",
+    playlistId: group.id
+  };
+  videoMap.set(id, video);
+  return video;
+}
+
+function resetPublicPlaylistTraversal() {
+  for (const group of channelPlaylists.groups) {
+    group.cursor = 0;
+  }
+  channelPlaylists.playlistCursor = 0;
+}
+
+async function fetchYouTube(resource, params) {
+  const response = await fetch(
+    `https://www.googleapis.com/youtube/v3/${resource}?${new URLSearchParams(params)}`,
+    { headers: { Authorization: "Bearer " + accessToken } }
+  );
+  if (!response.ok) {
+    const error = new Error(`YouTube API request failed: ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+  return response.json();
 }
 
 function playNextVideo() {
@@ -290,6 +503,7 @@ function queueVideo(video, options) {
   }
 
   window.clearTimeout(previewTimer);
+  queuedVideo = video;
   showPreview(video, options.assistText);
   previewTimer = window.setTimeout(() => {
     startVideo(video, options);
@@ -297,6 +511,7 @@ function queueVideo(video, options) {
 }
 
 function startVideo(video, options) {
+  queuedVideo = null;
   currentVideo = video;
   hidePreview();
 
