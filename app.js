@@ -35,6 +35,11 @@ bootstrap();
 
 async function bootstrap() {
   try {
+    if (!youtubeApiKey) {
+      showLoadError("YOUTUBE_API_KEY を設定してください");
+      return;
+    }
+
     await loadMostPopularVideos();
     setupPlayer();
   } catch (error) {
