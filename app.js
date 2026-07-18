@@ -1,20 +1,19 @@
 const videos = [
-  { id: "M7lc1UVf-VE", title: "YouTube プレイヤーデモ", channel: "YouTube Developers", category: "学び" },
-  { id: "dQw4w9WgXcQ", title: "Never Gonna Give You Up", channel: "Rick Astley", category: "音楽" },
-  { id: "9bZkp7q19f0", title: "Gangnam Style", channel: "officialpsy", category: "音楽" },
-  { id: "XGSy3_Czz8k", title: "やさしい紹介動画", channel: "YouTube Spotlight", category: "学び" },
-  { id: "aqz-KE-bpKQ", title: "Sintel Trailer", channel: "Blender Foundation", category: "映画" },
-  { id: "kXYiU_JCYtU", title: "Numb", channel: "Linkin Park", category: "音楽" },
-  { id: "jNQXAC9IVRw", title: "Me at the zoo", channel: "jawed", category: "日常" },
-  { id: "ysz5S6PUM-U", title: "おすすめプレイリスト", channel: "YouTube Viewers", category: "学び" },
-  { id: "2Vv-BfVoq4g", title: "Perfect", channel: "Ed Sheeran", category: "音楽" },
+  { id: "kJQP7kiw5Fk", title: "Despacito", channel: "Luis Fonsi", category: "音楽" },
+  { id: "3JZ_D3ELwOQ", title: "See You Again", channel: "Wiz Khalifa", category: "音楽" },
   { id: "JGwWNGJdvx8", title: "Shape of You", channel: "Ed Sheeran", category: "音楽" },
-  { id: "lp-EO5I60KA", title: "Thinking Out Loud", channel: "Ed Sheeran", category: "音楽" },
-  { id: "LXb3EKWsInQ", title: "自然の風景", channel: "National Geographic", category: "自然" },
-  { id: "eVTXPUF4Oz4", title: "In the End", channel: "Linkin Park", category: "音楽" },
-  { id: "8sgycukafqQ", title: "What I've Done", channel: "Linkin Park", category: "音楽" },
-  { id: "3fumBcKC6RE", title: "ゲーム実況ハイライト", channel: "Nintendo of America", category: "ゲーム" },
-  { id: "1La4QzGeaaQ", title: "宇宙から見た地球", channel: "NASA", category: "ニュース" }
+  { id: "OPf0YbXqDm0", title: "Uptown Funk", channel: "Mark Ronson", category: "音楽" },
+  { id: "YQHsXMglC9A", title: "Hello", channel: "Adele", category: "音楽" },
+  { id: "fJ9rUzIMcZQ", title: "Bohemian Rhapsody", channel: "Queen Official", category: "音楽" },
+  { id: "9bZkp7q19f0", title: "Gangnam Style", channel: "officialpsy", category: "音楽" },
+  { id: "kXYiU_JCYtU", title: "Numb", channel: "Linkin Park", category: "音楽" },
+  { id: "dQw4w9WgXcQ", title: "Never Gonna Give You Up", channel: "Rick Astley", category: "音楽" },
+  { id: "IcrbM1l_BoI", title: "Waka Waka", channel: "Shakira", category: "音楽" },
+  { id: "60ItHLz5WEA", title: "Closer", channel: "The Chainsmokers", category: "音楽" },
+  { id: "hTWKbfoikeg", title: "Smells Like Teen Spirit", channel: "Nirvana", category: "音楽" },
+  { id: "e-ORhEE9VVg", title: "Blank Space", channel: "Taylor Swift", category: "音楽" },
+  { id: "CevxZvSJLk8", title: "Roar", channel: "Katy Perry", category: "音楽" },
+  { id: "VbfpW0pbvaU", title: "Bad Romance", channel: "Lady Gaga", category: "音楽" }
 ];
 
 const videoMap = new Map(videos.map((video) => [video.id, video]));
