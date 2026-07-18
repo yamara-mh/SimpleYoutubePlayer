@@ -23,6 +23,8 @@ const elements = {
   previewImage: document.getElementById("previewImage"),
   previewTitle: document.getElementById("previewTitle"),
   previewMeta: document.getElementById("previewMeta"),
+  authOverlay: document.getElementById("authOverlay"),
+  authButton: document.getElementById("authButton"),
   playToggle: document.getElementById("playToggle"),
   volumeDown: document.getElementById("volumeDown"),
   volumeUp: document.getElementById("volumeUp"),
@@ -48,8 +50,7 @@ async function bootstrap() {
 
   const accessToken = getStoredToken();
   if (!accessToken) {
-    // Not authenticated — redirect to Google OAuth consent page.
-    initiateOAuth();
+    showAuthPrompt();
     return;
   }
 
@@ -61,7 +62,7 @@ async function bootstrap() {
     if (error.status === 401 || error.status === 403) {
       // Token is invalid or revoked — clear it and re-authenticate.
       clearStoredToken();
-      initiateOAuth();
+      showAuthPrompt();
     } else {
       showLoadError("人気動画の読み込みに失敗しました");
     }
@@ -95,6 +96,8 @@ async function loadMostPopularVideos(accessToken) {
   if (!videos.length) {
     throw new Error("YouTube API returned no videos");
   }
+
+  hideAuthPrompt();
 }
 
 function mapVideoItem(item) {
@@ -199,6 +202,7 @@ function loadYouTubeVideo(videoId) {
 }
 
 function wireEvents() {
+  elements.authButton.addEventListener("click", initiateOAuth);
   elements.playToggle.addEventListener("click", togglePlayback);
   elements.volumeDown.addEventListener("click", () => changeVolume(-1));
   elements.volumeUp.addEventListener("click", () => changeVolume(1));
@@ -209,6 +213,14 @@ function wireEvents() {
 function renderStaticState() {
   elements.volumeLevel.textContent = String(state.volume);
   elements.playToggle.innerHTML = state.isPlaying ? "⏸️<br>停止" : "▶️<br>再生";
+}
+
+function showAuthPrompt() {
+  elements.authOverlay.classList.remove("hidden");
+}
+
+function hideAuthPrompt() {
+  elements.authOverlay.classList.add("hidden");
 }
 
 function togglePlayback() {

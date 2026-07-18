@@ -67,7 +67,22 @@ button {
   z-index: 2;
 }
 
+.auth-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+  background: rgba(7, 16, 31, 0.9);
+  color: #fff;
+  z-index: 3;
+}
+
 .preview-overlay.hidden {
+  display: none;
+}
+
+.auth-overlay.hidden {
   display: none;
 }
 
@@ -93,6 +108,44 @@ button {
 .preview-copy p {
   margin: 0;
   font-size: clamp(1rem, 2vw, 1.5rem);
+}
+
+.auth-panel {
+  width: min(640px, 100%);
+  padding: 2rem;
+  border-radius: 28px;
+  background: rgba(17, 31, 56, 0.95);
+  text-align: center;
+  box-shadow: 0 24px 60px rgba(16, 38, 66, 0.3);
+}
+
+.auth-label {
+  margin: 0 0 0.75rem;
+  font-size: 1.15rem;
+}
+
+.auth-panel h2 {
+  margin: 0 0 1rem;
+  font-size: clamp(1.7rem, 4vw, 3rem);
+  line-height: 1.2;
+}
+
+.auth-panel p {
+  margin: 0;
+  font-size: clamp(1rem, 2vw, 1.45rem);
+}
+
+.auth-button {
+  margin-top: 1.5rem;
+  min-height: 4.4rem;
+  padding: 0.9rem 1.4rem;
+  border: none;
+  border-radius: 20px;
+  background: linear-gradient(180deg, #ff606d 0%, #e83d56 100%);
+  color: #fff;
+  font-size: clamp(1.3rem, 3vw, 2.2rem);
+  font-weight: 800;
+  box-shadow: 0 14px 30px rgba(232, 61, 86, 0.3);
 }
 
 .control-section {
@@ -184,5 +237,13 @@ button {
   .preview-overlay {
     grid-template-columns: 1fr;
     padding: 1.2rem;
+  }
+
+  .auth-overlay {
+    padding: 1rem;
+  }
+
+  .auth-panel {
+    padding: 1.4rem;
   }
 }
