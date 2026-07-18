@@ -8,7 +8,7 @@ const youtubeMaxResults = 15;
 // OAuth 2.0 implicit flow — client_id is a public identifier (not a secret).
 // client_secret is intentionally absent; the implicit flow does not require it.
 const oauthClientId = "431396271681-q2krn0mfqbp3i0nbhkamtb3sfvjqu93t.apps.googleusercontent.com";
-const oauthRedirectUri = `${location.origin}${location.pathname}`;
+const oauthRedirectUri = getOAuthRedirectUri();
 const oauthScope = "https://www.googleapis.com/auth/youtube.readonly";
 // sessionStorage keys — tab-scoped, cleared when the tab or browser is closed.
 const oauthStateKey = "syp_oauth_state";
@@ -446,6 +446,15 @@ function initiateOAuth() {
   });
 
   window.location.href = "https://accounts.google.com/o/oauth2/v2/auth?" + params;
+}
+
+function getOAuthRedirectUri() {
+  if (location.hostname === "yamara-mh.github.io") {
+    return "https://yamara-mh.github.io/SimpleYoutubePlayer/";
+  }
+
+  const pathname = location.pathname.replace(/index\.html$/i, "");
+  return `${location.origin}${pathname.endsWith("/") ? pathname : `${pathname}/`}`;
 }
 
 /**
