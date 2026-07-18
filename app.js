@@ -2,7 +2,7 @@ const storageKey = "simple-youtube-player-state";
 const previewDelayMs = 2000;
 const comboWindowMs = 1000;
 const defaultVolume = 5;
-const youtubeApiKey = window.YOUTUBE_API_KEY || "";
+const youtubeApiKey = new URL(window.location.href).searchParams.get("YOUTUBE_API_KEY") || "";
 const youtubeRegionCode = "JP";
 const youtubeMaxResults = 15;
 
@@ -301,7 +301,7 @@ function showPreview(video, assistText) {
 function showLoadError(message) {
   elements.previewImage.removeAttribute("src");
   elements.previewTitle.textContent = message;
-  elements.previewMeta.textContent = "YOUTUBE_API_KEY を確認してください";
+  elements.previewMeta.textContent = "URL パラメータで YOUTUBE_API_KEY を指定してください";
   elements.previewOverlay.classList.remove("hidden");
 }
 

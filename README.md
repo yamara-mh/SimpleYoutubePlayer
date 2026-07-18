@@ -2,4 +2,4 @@
 
 人気の動画をかんたんに利用できます。
 
-[ここをクリックして視聴を開始します](https://yamara-mh.github.io/SimpleYoutubePlayer/)
+[ここをクリックして視聴を開始します](https://yamara-mh.github.io/SimpleYoutubePlayer/?YOUTUBE_API_KEY=YOUR_KEY)
