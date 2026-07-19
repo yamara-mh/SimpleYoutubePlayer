@@ -1,9 +1,24 @@
 const storageKey = "simple-youtube-player-state";
 const previewDelayMs = 2000;
-const comboWindowMs = 1000;
 const defaultVolume = 5;
 const youtubeRegionCode = "JP";
 const youtubeMaxResults = 15;
+const discoveryMaxResults = 50;
+const discoveryCacheLimit = 100;
+const discoveryTagLimit = 64;
+const tagInterestLimit = 512;
+const discoveryRefreshMs = 6 * 60 * 60 * 1000;
+const thumbnailSwitchWindowMs = 1200;
+const playbackPollMs = 1000;
+const minimumTrackedPlaybackSeconds = 15;
+const shortVideoSeconds = 30;
+const initialInterestTags = [
+  "映画とアニメ", "自動車と乗り物", "音楽", "ペットと動物", "スポーツ", "ショート ムービー",
+  "旅行とイベント", "ゲーム", "動画ブログ", "ブログ", "コメディー", "エンターテイメント",
+  "ニュースと政治", "ハウツーとスタイル", "教育", "科学と技術", "映画", "アニメ",
+  "アクション/アドベンチャー", "クラシック", "コメディー", "ドキュメンタリー", "ドラマ",
+  "家族向け", "海外", "ホラー", "SF", "ファンタジー", "サスペンス", "短編", "番組", "予告編"
+];
 
 // OAuth 2.0 implicit flow — client_id is a public identifier (not a secret).
 // client_secret is intentionally absent; the implicit flow does not require it.
@@ -33,7 +48,7 @@ const elements = {
   volumeUp: document.getElementById("volumeUp"),
   volumeLevel: document.getElementById("volumeLevel"),
   moreButton: document.getElementById("moreButton"),
-  nextButton: document.getElementById("nextButton")
+  discoverButton: document.getElementById("discoverButton")
 };
 
 const state = loadState();
@@ -41,7 +56,9 @@ const player = document.getElementById("player");
 let playerLoaded = false;
 let currentVideo = null;
 let previewTimer = null;
-let lastNavigation = { type: null, time: 0 };
+let previewShownAt = 0;
+let playback = createPlaybackState();
+let playbackPollTimer = null;
 
 wireEvents();
 renderStaticState();
@@ -58,6 +75,7 @@ async function bootstrap() {
   }
 
   try {
+    decayTagInterestsForNewDay();
     await loadMostPopularVideos();
     setupPlayer();
   } catch (error) {
@@ -74,7 +92,7 @@ async function bootstrap() {
 
 async function loadMostPopularVideos() {
   const params = new URLSearchParams({
-    part: "snippet",
+    part: "snippet,contentDetails",
     chart: "mostPopular",
     maxResults: String(youtubeMaxResults),
     regionCode: youtubeRegionCode
@@ -116,7 +134,9 @@ function mapVideoItem(item) {
     title: snippet.title,
     channel: snippet.channelTitle || "YouTube",
     channelId: snippet.channelId || "",
-    category: snippet.categoryId || "unknown"
+    category: snippet.categoryId || "unknown",
+    tags: Array.isArray(snippet.tags) ? snippet.tags : [],
+    duration: parseYouTubeDuration(item.contentDetails?.duration)
   };
 }
 
@@ -157,12 +177,19 @@ function onYouTubeMessage(event) {
   if (data.event === "onReady") {
     playerLoaded = true;
     sendPlayerCommand("addEventListener", ["onStateChange"]);
+    window.clearInterval(playbackPollTimer);
+    playbackPollTimer = window.setInterval(requestPlaybackInfo, playbackPollMs);
+    requestPlaybackInfo();
     applyVolume();
     return;
   }
 
   if (data.event === "onStateChange") {
     handlePlayerStateChange(data.info);
+  }
+
+  if (data.event === "infoDelivery") {
+    updatePlaybackInfo(data.info || {});
   }
 }
 
@@ -178,6 +205,9 @@ function handlePlayerStateChange(stateCode) {
     state.isPlaying = false;
     elements.playToggle.textContent = "▶️再生";
     saveState();
+    if (stateCode === 0) {
+      finalizeCurrentVideo();
+    }
   }
 }
 
@@ -211,7 +241,8 @@ function wireEvents() {
   elements.volumeDown.addEventListener("click", () => changeVolume(-1));
   elements.volumeUp.addEventListener("click", () => changeVolume(1));
   elements.moreButton.addEventListener("click", playMoreVideos);
-  elements.nextButton.addEventListener("click", playNextVideo);
+  elements.discoverButton.addEventListener("click", discoverVideo);
+  window.addEventListener("beforeunload", finalizeCurrentVideo);
 }
 
 function renderStaticState() {
@@ -262,6 +293,7 @@ async function playMoreVideos() {
   }
 
   try {
+    finalizeCurrentVideo();
     await ensureChannelPlaylists(sourceVideo.channelId);
     const playlist =
       queuedVideo
@@ -486,15 +518,26 @@ async function fetchYouTube(resource, params) {
   return response.json();
 }
 
-function playNextVideo() {
-  const forceDifferentGenre = isRecentNavigation("next");
-  const nextVideo = pickNextVideo(forceDifferentGenre);
-  lastNavigation = { type: "next", time: Date.now() };
-  queueVideo(nextVideo, {
-    recordHistory: true,
-    historyIndexOverride: null,
-    assistText: forceDifferentGenre ? "いつもと違うジャンルを探しています" : "見やすいおすすめ動画を選んでいます"
-  });
+async function discoverVideo() {
+  const switchingPreview = queuedVideo && Date.now() - previewShownAt <= thumbnailSwitchWindowMs;
+  const sourceVideo = queuedVideo || currentVideo;
+
+  if (switchingPreview) {
+    window.clearTimeout(previewTimer);
+    queuedVideo = null;
+    const tag = selectDiscoveryTag();
+    await queueDiscoveryVideo(tag, true, "別の動画を探しています");
+    return;
+  }
+
+  if (sourceVideo && currentVideo === sourceVideo && watchedAtLeastHalf()) {
+    await playMoreVideos();
+    return;
+  }
+
+  finalizeCurrentVideo();
+  const tag = sourceVideo?.discoveryTag || selectDiscoveryTag();
+  await queueDiscoveryVideo(tag, false, "おすすめ動画を探しています");
 }
 
 function queueVideo(video, options) {
@@ -504,6 +547,7 @@ function queueVideo(video, options) {
 
   window.clearTimeout(previewTimer);
   queuedVideo = video;
+  previewShownAt = Date.now();
   showPreview(video, options.assistText);
   previewTimer = window.setTimeout(() => {
     startVideo(video, options);
@@ -513,6 +557,8 @@ function queueVideo(video, options) {
 function startVideo(video, options) {
   queuedVideo = null;
   currentVideo = video;
+  playback = createPlaybackState(video);
+  loadVideoMetadata(video);
   hidePreview();
 
   if (typeof options.historyIndexOverride === "number") {
@@ -574,58 +620,244 @@ function resolveInitialVideo() {
   return videos[0];
 }
 
-function pickNextVideo(forceDifferentGenre) {
-  if (!videos.length) {
-    return null;
-  }
-
-  const currentCategory = currentVideo ? currentVideo.category : null;
-  const topCategory = getTopCategory();
-
-  const scored = videos
-    .filter((video) => !currentVideo || video.id !== currentVideo.id)
-    .map((video) => ({
-      video,
-      score: scoreVideo(video, { currentCategory, topCategory, forceDifferentGenre })
-    }))
-    .sort((left, right) => right.score - left.score);
-
-  return scored[0]?.video || videos[0];
-}
-
-function scoreVideo(video, context) {
-  let score = 10;
-  const categoryViews = state.viewCounts[video.category] || 0;
-  const recentPenalty = state.lastWatchedAt[video.id] ? 6 : 0;
-
-  score += categoryViews * 2;
-  score -= recentPenalty;
-
-  if (context.forceDifferentGenre) {
-    if (video.category !== context.currentCategory && video.category !== context.topCategory) {
-      score += 12;
-    } else {
-      score -= 12;
-    }
-  } else if (context.currentCategory && video.category === context.currentCategory) {
-    score += 3;
-  }
-
-  return score + Math.random();
-}
-
-function isRecentNavigation(type) {
-  return lastNavigation.type === type && Date.now() - lastNavigation.time <= comboWindowMs;
-}
-
-function getTopCategory() {
-  const categories = Object.entries(state.viewCounts);
-  categories.sort((left, right) => right[1] - left[1]);
-  return categories[0]?.[0] || "";
-}
-
 function thumbnailUrl(videoId) {
   return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+}
+
+async function queueDiscoveryVideo(tag, forceRefresh, assistText) {
+  if (!tag) {
+    setAssistMessage("おすすめ動画を選べませんでした");
+    return;
+  }
+
+  try {
+    const group = await getTagVideoList(tag, forceRefresh);
+    const video = group.videos.find((item) => item.id !== currentVideo?.id);
+    if (!video) {
+      setAssistMessage("再生できる動画がありません");
+      return;
+    }
+    queueVideo(video, {
+      recordHistory: true,
+      historyIndexOverride: null,
+      assistText
+    });
+  } catch (error) {
+    console.error(error);
+    setAssistMessage("動画の検索に失敗しました");
+  }
+}
+
+async function getTagVideoList(tag, forceRefresh) {
+  const group = state.tagVideoLists[tag];
+  if (!forceRefresh && group?.refreshAt > Date.now() && Array.isArray(group.videos)) {
+    return group;
+  }
+
+  const search = await fetchYouTube("search", {
+    part: "snippet",
+    q: tag,
+    type: "video",
+    maxResults: String(discoveryMaxResults),
+    regionCode: youtubeRegionCode
+  });
+  const ids = (search.items || []).map((item) => item.id?.videoId).filter(Boolean);
+  const details = ids.length
+    ? await fetchYouTube("videos", { part: "snippet,contentDetails", id: ids.join(",") })
+    : { items: [] };
+  const detailById = new Map((details.items || []).map((item) => [item.id, item]));
+  const added = ids
+    .map((id) => mapVideoItem(detailById.get(id)))
+    .filter(Boolean)
+    .map((video) => ({ ...video, tags: video.tags.length ? video.tags : [tag], discoveryTag: tag }));
+  const addedIds = new Set(added.map((video) => video.id));
+  const videosForTag = [
+    ...added,
+    ...(Array.isArray(group?.videos) ? group.videos.filter((video) => !addedIds.has(video.id)) : [])
+  ].slice(0, discoveryCacheLimit);
+
+  for (const video of videosForTag) {
+    videoMap.set(video.id, video);
+  }
+  state.tagVideoLists[tag] = { videos: videosForTag, refreshAt: Date.now() + discoveryRefreshMs };
+  state.recentSearchTags = [tag, ...state.recentSearchTags.filter((item) => item !== tag)].slice(0, 6);
+  trimTagVideoLists(tag);
+  saveState();
+  return state.tagVideoLists[tag] || { videos: videosForTag };
+}
+
+function selectDiscoveryTag() {
+  const ranked = Object.entries(state.tagInterests)
+    .filter(([, value]) => Number.isFinite(value) && value > 0)
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, discoveryTagLimit);
+  const eligible = ranked.filter(([tag]) => !state.recentSearchTags.includes(tag));
+  return chooseWeightedTag(eligible.length ? eligible : ranked);
+}
+
+function chooseWeightedTag(entries) {
+  const total = entries.reduce((sum, [, value]) => sum + value, 0);
+  let target = Math.random() * total;
+  for (const [tag, value] of entries) {
+    target -= value;
+    if (target <= 0) {
+      return tag;
+    }
+  }
+  return entries[0]?.[0] || "";
+}
+
+function createPlaybackState(video) {
+  return {
+    videoId: video?.id || "",
+    totalSeconds: 0,
+    lastPosition: null,
+    duration: video?.duration || 0,
+    finalized: false
+  };
+}
+
+function requestPlaybackInfo() {
+  sendPlayerCommand("getCurrentTime");
+  sendPlayerCommand("getDuration");
+}
+
+function updatePlaybackInfo(info) {
+  if (!currentVideo || playback.videoId !== currentVideo.id) {
+    return;
+  }
+  const position = Number(info.currentTime);
+  const duration = Number(info.duration);
+  if (Number.isFinite(duration) && duration > 0) {
+    playback.duration = duration;
+  }
+  if (!Number.isFinite(position)) {
+    return;
+  }
+  if (state.isPlaying && playback.lastPosition !== null) {
+    const elapsed = position - playback.lastPosition;
+    if (elapsed > 0 && elapsed <= playbackPollMs / 1000 + 3) {
+      playback.totalSeconds += elapsed;
+    }
+  }
+  playback.lastPosition = position;
+}
+
+function watchedAtLeastHalf() {
+  const duration = playback.duration || currentVideo?.duration || 0;
+  return duration > 0 && playback.totalSeconds >= duration / 2;
+}
+
+function finalizeCurrentVideo() {
+  if (!currentVideo || playback.videoId !== currentVideo.id || playback.finalized) {
+    return;
+  }
+  playback.finalized = true;
+  moveDiscoveryVideoToBack(currentVideo);
+
+  const duration = playback.duration || currentVideo.duration || 0;
+  if (
+    playback.totalSeconds < minimumTrackedPlaybackSeconds ||
+    (duration > 0 && duration < shortVideoSeconds && playback.totalSeconds < duration / 2)
+  ) {
+    saveState();
+    return;
+  }
+
+  const tags = [...new Set(currentVideo.tags?.length ? currentVideo.tags : [currentVideo.discoveryTag])].filter(Boolean);
+  tags.forEach((tag, index) => {
+    state.tagInterests[tag] = (state.tagInterests[tag] || 0) +
+      Math.sqrt(playback.totalSeconds / 300) * Math.pow(0.9, index);
+  });
+  trimTagInterests();
+  saveState();
+}
+
+function moveDiscoveryVideoToBack(video) {
+  if (!video.discoveryTag) {
+    return;
+  }
+  const group = state.tagVideoLists[video.discoveryTag];
+  if (!group?.videos) {
+    return;
+  }
+  const index = group.videos.findIndex((item) => item.id === video.id);
+  if (index >= 0) {
+    group.videos.push(group.videos.splice(index, 1)[0]);
+  }
+}
+
+function decayTagInterestsForNewDay() {
+  const today = new Date().toISOString().slice(0, 10);
+  if (!state.lastUsageDate) {
+    state.lastUsageDate = today;
+    saveState();
+    return;
+  }
+  if (state.lastUsageDate === today) {
+    return;
+  }
+  const elapsedDays = Math.max(
+    0,
+    Math.floor((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${state.lastUsageDate}T00:00:00Z`)) / 86400000)
+  );
+  const multiplier = (365 - Math.min(elapsedDays, 180)) / 365;
+  for (const tag of Object.keys(state.tagInterests)) {
+    state.tagInterests[tag] *= multiplier;
+  }
+  state.lastUsageDate = today;
+  trimTagInterests();
+  saveState();
+}
+
+function trimTagInterests() {
+  const tagsToRemove = Object.entries(state.tagInterests)
+    .sort((left, right) => left[1] - right[1])
+    .slice(0, Math.max(0, Object.keys(state.tagInterests).length - tagInterestLimit))
+    .map(([tag]) => tag);
+  for (const tag of tagsToRemove) {
+    delete state.tagInterests[tag];
+  }
+  trimTagVideoLists();
+}
+
+function trimTagVideoLists(protectedTag = "") {
+  const tagsToRemove = Object.keys(state.tagVideoLists)
+    .filter((tag) => tag !== protectedTag)
+    .sort((left, right) => (state.tagInterests[left] || 0) - (state.tagInterests[right] || 0))
+    .slice(0, Math.max(0, Object.keys(state.tagVideoLists).length - discoveryTagLimit));
+  for (const tag of tagsToRemove) {
+    delete state.tagVideoLists[tag];
+  }
+}
+
+function parseYouTubeDuration(value) {
+  const match = /^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/.exec(value || "");
+  if (!match) {
+    return 0;
+  }
+  return Number(match[1] || 0) * 3600 + Number(match[2] || 0) * 60 + Number(match[3] || 0);
+}
+
+async function loadVideoMetadata(video) {
+  if (video.tags?.length && video.duration) {
+    return;
+  }
+  try {
+    const data = await fetchYouTube("videos", {
+      part: "snippet,contentDetails",
+      id: video.id
+    });
+    const metadata = data.items?.[0];
+    if (!metadata || currentVideo?.id !== video.id) {
+      return;
+    }
+    video.tags = Array.isArray(metadata.snippet?.tags) ? metadata.snippet.tags : video.tags || [];
+    video.duration = parseYouTubeDuration(metadata.contentDetails?.duration) || video.duration || 0;
+    playback.duration = video.duration;
+  } catch (error) {
+    console.error(error);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -772,7 +1004,11 @@ function createDefaultState() {
     lastVideoId: "",
     lastWatchedAt: {},
     viewCounts: {},
-    volume: defaultVolume
+    volume: defaultVolume,
+    tagInterests: Object.fromEntries([...new Set(initialInterestTags)].map((tag) => [tag, 1])),
+    tagVideoLists: {},
+    recentSearchTags: [],
+    lastUsageDate: ""
   };
 }
 
