@@ -795,7 +795,7 @@ function selectDiscoveryTag() {
     .filter(([, value]) => Number.isFinite(value) && value > 0)
     .sort((left, right) => right[1] - left[1])
     .slice(0, discoveryTagLimit);
-  const eligible = Object.keys(state.tagInterests).length > recentSearchTagLimit
+  const eligible = ranked.length > recentSearchTagLimit
     ? ranked.filter(([tag]) => !state.recentSearchTags.includes(tag))
     : ranked;
   const selectedTag = chooseWeightedTag(eligible);
