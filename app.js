@@ -20,6 +20,7 @@ const initialInterestTags = [
   "音楽", "J-POP", "洋楽", "K-POP", "Hip Hop", "クラシック", "ヒット曲", "名曲", "演奏", "作業用BGM", "パフォーマンス",
   "エンターテインメント", "お笑い", "バラエティ", "落語", "ゲーム", "漫画", "アニメ", "ドラマ", "映画", "考察", "感動", "ドキュメンタリー", "ミステリー", "謎解き"
 ];
+const recentSearchTagLimit = 6;
 
 // OAuth 2.0 implicit flow — client_id is a public identifier (not a secret).
 // client_secret is intentionally absent; the implicit flow does not require it.
@@ -44,6 +45,9 @@ const elements = {
   previewMeta: document.getElementById("previewMeta"),
   authOverlay: document.getElementById("authOverlay"),
   authButton: document.getElementById("authButton"),
+  interestSetupOverlay: document.getElementById("interestSetupOverlay"),
+  interestTagList: document.getElementById("interestTagList"),
+  interestSetupButton: document.getElementById("interestSetupButton"),
   playToggle: document.getElementById("playToggle"),
   volumeDown: document.getElementById("volumeDown"),
   volumeUp: document.getElementById("volumeUp"),
@@ -63,9 +67,15 @@ let discoveryButtonsBusy = false;
 
 wireEvents();
 renderStaticState();
+renderInterestSetup();
 bootstrap();
 
 async function bootstrap() {
+  if (!state.initialSetupCompleted) {
+    showInterestSetup();
+    return;
+  }
+
   // Process an OAuth callback if the URL fragment contains an access token.
   handleOAuthCallback();
 
@@ -239,12 +249,57 @@ function loadYouTubeVideo(videoId) {
 
 function wireEvents() {
   elements.authButton.addEventListener("click", initiateOAuth);
+  elements.interestSetupButton.addEventListener("click", completeInterestSetup);
+  elements.interestTagList.addEventListener("change", updateInterestSetupButton);
   elements.playToggle.addEventListener("click", togglePlayback);
   elements.volumeDown.addEventListener("click", () => changeVolume(-1));
   elements.volumeUp.addEventListener("click", () => changeVolume(1));
   elements.moreButton.addEventListener("click", playMoreVideos);
   elements.discoverButton.addEventListener("click", discoverVideo);
   window.addEventListener("beforeunload", finalizeCurrentVideo);
+}
+
+function renderInterestSetup() {
+  elements.interestTagList.replaceChildren(
+    ...initialInterestTags.map((tag, index) => {
+      const wrapper = document.createElement("div");
+      wrapper.className = "interest-tag";
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.id = `interest-tag-${index}`;
+      input.value = tag;
+      const label = document.createElement("label");
+      label.htmlFor = input.id;
+      label.textContent = tag;
+      wrapper.append(input, label);
+      return wrapper;
+    })
+  );
+  updateInterestSetupButton();
+}
+
+function updateInterestSetupButton() {
+  elements.interestSetupButton.disabled =
+    elements.interestTagList.querySelectorAll("input:checked").length === 0;
+}
+
+function showInterestSetup() {
+  elements.interestSetupOverlay.classList.remove("hidden");
+  elements.interestSetupButton.disabled = true;
+}
+
+function completeInterestSetup() {
+  const selectedTags = [...elements.interestTagList.querySelectorAll("input:checked")]
+    .map((input) => input.value);
+  if (!selectedTags.length) {
+    return;
+  }
+
+  state.tagInterests = Object.fromEntries(selectedTags.map((tag) => [tag, 1]));
+  state.initialSetupCompleted = true;
+  saveState();
+  elements.interestSetupOverlay.classList.add("hidden");
+  bootstrap();
 }
 
 function renderStaticState() {
@@ -740,8 +795,10 @@ function selectDiscoveryTag() {
     .filter(([, value]) => Number.isFinite(value) && value > 0)
     .sort((left, right) => right[1] - left[1])
     .slice(0, discoveryTagLimit);
-  const eligible = ranked.filter(([tag]) => !state.recentSearchTags.includes(tag));
-  const selectedTag = chooseWeightedTag(eligible.length ? eligible : ranked);
+  const eligible = Object.keys(state.tagInterests).length > recentSearchTagLimit
+    ? ranked.filter(([tag]) => !state.recentSearchTags.includes(tag))
+    : ranked;
+  const selectedTag = chooseWeightedTag(eligible);
   console.info("[tagInterests] Selected discovery tag", {
     selectedTag,
     ranked,
@@ -1071,10 +1128,11 @@ function createDefaultState() {
     lastWatchedAt: {},
     viewCounts: {},
     volume: defaultVolume,
-    tagInterests: Object.fromEntries([...new Set(initialInterestTags)].map((tag) => [tag, 1])),
+    tagInterests: {},
     tagVideoLists: {},
     recentSearchTags: [],
-    lastUsageDate: ""
+    lastUsageDate: "",
+    initialSetupCompleted: false
   };
 }
 
