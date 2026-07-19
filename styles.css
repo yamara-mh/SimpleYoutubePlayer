@@ -189,6 +189,11 @@ button {
   outline-offset: 4px;
 }
 
+.control-button:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+
 .volume-panel {
   flex-direction: column;
   gap: 0.65rem;

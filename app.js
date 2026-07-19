@@ -1,5 +1,7 @@
 const storageKey = "simple-youtube-player-state";
 const previewDelayMs = 2000;
+const previewDelayWhileShowingMs = 4000;
+const previewDelayBefore15SecondsMs = 3000;
 const defaultVolume = 5;
 const youtubeRegionCode = "JP";
 const youtubeMaxResults = 15;
@@ -8,7 +10,6 @@ const discoveryCacheLimit = 100;
 const discoveryTagLimit = 64;
 const tagInterestLimit = 512;
 const discoveryRefreshMs = 6 * 60 * 60 * 1000;
-const thumbnailSwitchWindowMs = 1200;
 const playbackPollMs = 1000;
 const minimumTrackedPlaybackSeconds = 15;
 const shortVideoSeconds = 30;
@@ -56,9 +57,9 @@ const player = document.getElementById("player");
 let playerLoaded = false;
 let currentVideo = null;
 let previewTimer = null;
-let previewShownAt = 0;
 let playback = createPlaybackState();
 let playbackPollTimer = null;
+let discoveryButtonsBusy = false;
 
 wireEvents();
 renderStaticState();
@@ -75,6 +76,7 @@ async function bootstrap() {
   }
 
   try {
+    console.info("[tagInterests] Loaded", state.tagInterests);
     decayTagInterestsForNewDay();
     await loadMostPopularVideos();
     setupPlayer();
@@ -258,6 +260,14 @@ function hideAuthPrompt() {
   elements.authOverlay.classList.add("hidden");
 }
 
+function setDiscoveryButtonsBusy(isBusy) {
+  discoveryButtonsBusy = isBusy;
+  for (const button of [elements.moreButton, elements.discoverButton]) {
+    button.disabled = isBusy;
+    button.setAttribute("aria-busy", String(isBusy));
+  }
+}
+
 function togglePlayback() {
   if (!currentVideo) {
     return;
@@ -292,7 +302,9 @@ async function playMoreVideos() {
     return;
   }
 
+  setDiscoveryButtonsBusy(true);
   try {
+    const actionPreviewDelayMs = getPreviewDelayForAction();
     finalizeCurrentVideo();
     await ensureChannelPlaylists(sourceVideo.channelId);
     const playlist =
@@ -308,6 +320,7 @@ async function playMoreVideos() {
     queueVideo(playlist.video, {
       recordHistory: true,
       historyIndexOverride: null,
+      previewDelayMs: actionPreviewDelayMs,
       assistText: playlist.isDifferent
         ? "別の再生リストを準備しています"
         : "次の動画を準備しています"
@@ -315,6 +328,8 @@ async function playMoreVideos() {
   } catch (error) {
     console.error(error);
     setAssistMessage("再生リストの読み込みに失敗しました");
+  } finally {
+    setDiscoveryButtonsBusy(false);
   }
 }
 
@@ -519,14 +534,23 @@ async function fetchYouTube(resource, params) {
 }
 
 async function discoverVideo() {
-  const switchingPreview = queuedVideo && Date.now() - previewShownAt <= thumbnailSwitchWindowMs;
+  if (discoveryButtonsBusy) {
+    return;
+  }
+
+  const switchingPreview = isThumbnailVisible();
   const sourceVideo = queuedVideo || currentVideo;
 
   if (switchingPreview) {
-    window.clearTimeout(previewTimer);
-    queuedVideo = null;
-    const tag = selectDiscoveryTag();
-    await queueDiscoveryVideo(tag, true, "別の動画を探しています");
+    setDiscoveryButtonsBusy(true);
+    try {
+      window.clearTimeout(previewTimer);
+      queuedVideo = null;
+      const tag = selectDiscoveryTag();
+      await queueDiscoveryVideo(tag, true, "別の動画を探しています", previewDelayWhileShowingMs);
+    } finally {
+      setDiscoveryButtonsBusy(false);
+    }
     return;
   }
 
@@ -535,9 +559,19 @@ async function discoverVideo() {
     return;
   }
 
+  setDiscoveryButtonsBusy(true);
   finalizeCurrentVideo();
   const tag = sourceVideo?.discoveryTag || selectDiscoveryTag();
-  await queueDiscoveryVideo(tag, false, "おすすめ動画を探しています");
+  try {
+    await queueDiscoveryVideo(
+      tag,
+      false,
+      "おすすめ動画を探しています",
+      getPreviewDelayForAction()
+    );
+  } finally {
+    setDiscoveryButtonsBusy(false);
+  }
 }
 
 function queueVideo(video, options) {
@@ -547,11 +581,10 @@ function queueVideo(video, options) {
 
   window.clearTimeout(previewTimer);
   queuedVideo = video;
-  previewShownAt = Date.now();
   showPreview(video, options.assistText);
   previewTimer = window.setTimeout(() => {
     startVideo(video, options);
-  }, previewDelayMs);
+  }, options.previewDelayMs ?? previewDelayMs);
 }
 
 function startVideo(video, options) {
@@ -607,6 +640,19 @@ function hidePreview() {
   elements.previewOverlay.classList.add("hidden");
 }
 
+function isThumbnailVisible() {
+  return Boolean(queuedVideo && !elements.previewOverlay.classList.contains("hidden"));
+}
+
+function getPreviewDelayForAction() {
+  if (isThumbnailVisible()) {
+    return previewDelayWhileShowingMs;
+  }
+  return playback.totalSeconds <= minimumTrackedPlaybackSeconds
+    ? previewDelayBefore15SecondsMs
+    : previewDelayMs;
+}
+
 function resolveInitialVideo() {
   if (!videos.length) {
     return null;
@@ -624,7 +670,7 @@ function thumbnailUrl(videoId) {
   return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
 }
 
-async function queueDiscoveryVideo(tag, forceRefresh, assistText) {
+async function queueDiscoveryVideo(tag, forceRefresh, assistText, actionPreviewDelayMs = previewDelayMs) {
   if (!tag) {
     setAssistMessage("おすすめ動画を選べませんでした");
     return;
@@ -640,6 +686,7 @@ async function queueDiscoveryVideo(tag, forceRefresh, assistText) {
     queueVideo(video, {
       recordHistory: true,
       historyIndexOverride: null,
+      previewDelayMs: actionPreviewDelayMs,
       assistText
     });
   } catch (error) {
@@ -651,9 +698,11 @@ async function queueDiscoveryVideo(tag, forceRefresh, assistText) {
 async function getTagVideoList(tag, forceRefresh) {
   const group = state.tagVideoLists[tag];
   if (!forceRefresh && group?.refreshAt > Date.now() && Array.isArray(group.videos)) {
+    console.info("[tagInterests] Using cached videos", { tag, interests: state.tagInterests });
     return group;
   }
 
+  console.info("[tagInterests] Fetching videos", { tag, interests: state.tagInterests });
   const search = await fetchYouTube("search", {
     part: "snippet",
     q: tag,
@@ -692,7 +741,13 @@ function selectDiscoveryTag() {
     .sort((left, right) => right[1] - left[1])
     .slice(0, discoveryTagLimit);
   const eligible = ranked.filter(([tag]) => !state.recentSearchTags.includes(tag));
-  return chooseWeightedTag(eligible.length ? eligible : ranked);
+  const selectedTag = chooseWeightedTag(eligible.length ? eligible : ranked);
+  console.info("[tagInterests] Selected discovery tag", {
+    selectedTag,
+    ranked,
+    interests: state.tagInterests
+  });
+  return selectedTag;
 }
 
 function chooseWeightedTag(entries) {
@@ -769,6 +824,12 @@ function finalizeCurrentVideo() {
     state.tagInterests[tag] = (state.tagInterests[tag] || 0) +
       Math.sqrt(playback.totalSeconds / 300) * Math.pow(0.9, index);
   });
+  console.info("[tagInterests] Updated after playback", {
+    videoId: currentVideo.id,
+    playbackSeconds: playback.totalSeconds,
+    tags,
+    interests: state.tagInterests
+  });
   trimTagInterests();
   saveState();
 }
@@ -805,6 +866,11 @@ function decayTagInterestsForNewDay() {
   for (const tag of Object.keys(state.tagInterests)) {
     state.tagInterests[tag] *= multiplier;
   }
+  console.info("[tagInterests] Applied daily decay", {
+    elapsedDays,
+    multiplier,
+    interests: state.tagInterests
+  });
   state.lastUsageDate = today;
   trimTagInterests();
   saveState();
