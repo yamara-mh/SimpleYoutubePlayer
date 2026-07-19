@@ -71,20 +71,22 @@ renderInterestSetup();
 bootstrap();
 
 async function bootstrap() {
-  if (!state.initialSetupCompleted) {
-    showInterestSetup();
-    return;
-  }
-
   // Process an OAuth callback if the URL fragment contains an access token.
   handleOAuthCallback();
 
   accessToken = getStoredToken();
   if (!accessToken) {
+    hideInterestSetup();
     showAuthPrompt();
     return;
   }
 
+  if (!state.initialSetupCompleted) {
+    showInterestSetup();
+    return;
+  }
+
+  hideInterestSetup();
   try {
     console.info("[tagInterests] Loaded", state.tagInterests);
     decayTagInterestsForNewDay();
@@ -208,14 +210,14 @@ function onYouTubeMessage(event) {
 function handlePlayerStateChange(stateCode) {
   if (stateCode === 1) {
     state.isPlaying = true;
-    elements.playToggle.textContent = "⏸️止める";
+    elements.playToggle.innerHTML = "⏸️<br>止める";
     saveState();
     return;
   }
 
   if (stateCode === 2 || stateCode === 0) {
     state.isPlaying = false;
-    elements.playToggle.textContent = "▶️再生";
+    elements.playToggle.innerHTML = "▶️<br>再生";
     saveState();
     if (stateCode === 0) {
       finalizeCurrentVideo();
@@ -288,6 +290,10 @@ function showInterestSetup() {
   elements.interestSetupButton.disabled = true;
 }
 
+function hideInterestSetup() {
+  elements.interestSetupOverlay.classList.add("hidden");
+}
+
 function completeInterestSetup() {
   const selectedTags = [...elements.interestTagList.querySelectorAll("input:checked")]
     .map((input) => input.value);
@@ -353,6 +359,7 @@ function applyVolume() {
 
 async function playMoreVideos() {
   const sourceVideo = queuedVideo || currentVideo;
+  const switchingPreview = isThumbnailVisible();
   if (!sourceVideo?.channelId) {
     return;
   }
@@ -363,8 +370,8 @@ async function playMoreVideos() {
     finalizeCurrentVideo();
     await ensureChannelPlaylists(sourceVideo.channelId);
     const playlist =
-      queuedVideo
-        ? await findAnotherPlaylist(queuedVideo.playlistId)
+      switchingPreview
+        ? await findAnotherPlaylist(sourceVideo.playlistId)
         : await findNextPlaylistVideo(sourceVideo.playlistId);
 
     if (!playlist) {
@@ -600,7 +607,7 @@ async function discoverVideo() {
     setDiscoveryButtonsBusy(true);
     try {
       window.clearTimeout(previewTimer);
-      queuedVideo = null;
+      finalizeCurrentVideo();
       const tag = selectDiscoveryTag();
       await queueDiscoveryVideo(tag, true, "別の動画を探しています", previewDelayWhileShowingMs);
     } finally {
@@ -861,6 +868,15 @@ function watchedAtLeastHalf() {
 }
 
 function finalizeCurrentVideo() {
+  if (queuedVideo) {
+    const video = queuedVideo;
+    queuedVideo = null;
+    moveDiscoveryVideoToBack(video);
+    updateTagInterests(video, minimumTrackedPlaybackSeconds);
+    saveState();
+    return;
+  }
+
   if (!currentVideo || playback.videoId !== currentVideo.id || playback.finalized) {
     return;
   }
@@ -876,19 +892,23 @@ function finalizeCurrentVideo() {
     return;
   }
 
-  const tags = [...new Set(currentVideo.tags?.length ? currentVideo.tags : [currentVideo.discoveryTag])].filter(Boolean);
+  updateTagInterests(currentVideo, playback.totalSeconds);
+  saveState();
+}
+
+function updateTagInterests(video, playbackSeconds) {
+  const tags = [...new Set(video.tags?.length ? video.tags : [video.discoveryTag])].filter(Boolean);
   tags.forEach((tag, index) => {
     state.tagInterests[tag] = (state.tagInterests[tag] || 0) +
-      Math.sqrt(playback.totalSeconds / 300) * Math.pow(0.9, index);
+      Math.sqrt(playbackSeconds / 300) * Math.pow(0.9, index);
   });
   console.info("[tagInterests] Updated after playback", {
-    videoId: currentVideo.id,
-    playbackSeconds: playback.totalSeconds,
+    videoId: video.id,
+    playbackSeconds,
     tags,
     interests: state.tagInterests
   });
   trimTagInterests();
-  saveState();
 }
 
 function moveDiscoveryVideoToBack(video) {
