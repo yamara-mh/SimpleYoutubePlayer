@@ -557,6 +557,9 @@ function applyVolume() {
 }
 
 async function playMoreVideos() {
+  if (discoverPressed) {
+    return;
+  }
   const sourceVideo = queuedVideo || currentVideo;
   const switchingPreview = isThumbnailVisible();
   if (!sourceVideo?.channelId) {
@@ -842,6 +845,21 @@ function queueVideo(video, options) {
 
   window.clearTimeout(previewTimer);
   queuedVideo = video;
+  if (options.recordHistory) {
+    const historyEntry = {
+      video: { ...video },
+      startedAt: Date.now(),
+      position: 0,
+      duration: video.duration || 0
+    };
+    options.historyEntry = historyEntry;
+    state.history = [...(state.history || []), historyEntry].slice(-1000);
+    const nextHistory = state.historyIds.slice(0, state.historyIndex + 1);
+    nextHistory.push(video.id);
+    state.historyIds = nextHistory;
+    state.historyIndex = state.historyIds.length - 1;
+    saveState();
+  }
   showPreview(video, options.assistText);
   previewTimer = window.setTimeout(() => {
     startVideo(video, options);
@@ -858,24 +876,17 @@ function startVideo(video, options) {
 
   if (typeof options.historyIndexOverride === "number") {
     state.historyIndex = options.historyIndexOverride;
-  } else if (options.recordHistory) {
-    const nextHistory = state.historyIds.slice(0, state.historyIndex + 1);
-    nextHistory.push(video.id);
-    state.historyIds = nextHistory;
-    state.historyIndex = state.historyIds.length - 1;
   }
 
   state.lastVideoId = video.id;
   state.lastWatchedAt[video.id] = Date.now();
-  const historyEntry = {
+  const historyEntry = options.historyEntry || {
     video: { ...video },
     startedAt: Date.now(),
     position: playback.resumePosition,
     duration: video.duration || 0
   };
-  if (options.recordHistory) {
-    state.history = [...(state.history || []), historyEntry].slice(-1000);
-  } else {
+  if (!options.historyEntry) {
     const existing = (state.history || []).find((entry) => entry.video?.id === video.id);
     playback.historyEntry = existing || historyEntry;
   }
