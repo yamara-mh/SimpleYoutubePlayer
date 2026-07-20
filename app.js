@@ -403,6 +403,7 @@ function renderHistory() {
         playHistoryEntry(entry);
       });
       item.addEventListener("keydown", (event) => {
+        if (event.target.closest(".history-youtube, .history-delete")) return;
         if (event.key === "Enter" || event.key === " ") playHistoryEntry(entry);
       });
       const image = document.createElement("img");
