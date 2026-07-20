@@ -183,6 +183,111 @@ button {
   display: none;
 }
 
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 8;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  overflow-y: auto;
+  background: rgba(7, 16, 31, 0.78);
+}
+
+.modal-overlay.hidden {
+  display: none;
+}
+
+.modal-panel {
+  position: relative;
+  width: min(720px, 100%);
+  max-height: 92vh;
+  padding: 3.5rem 1.5rem 1.5rem;
+  overflow-y: auto;
+  border-radius: 24px;
+  background: #fff;
+  color: #132238;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+}
+
+.modal-panel-wide {
+  width: min(1000px, 100%);
+}
+
+.modal-panel h2 {
+  margin: 0 0 1.2rem;
+  text-align: center;
+  font-size: clamp(1.6rem, 4vw, 2.6rem);
+}
+
+.modal-close, .modal-back, .modal-save {
+  position: absolute;
+  top: 1rem;
+  min-height: 3rem;
+  padding: 0.5rem 0.8rem;
+  border: none;
+  border-radius: 12px;
+  background: #edf3fb;
+  color: #132238;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.modal-close, .modal-back { right: 1rem; }
+.modal-save { left: 1rem; background: #2166d1; color: #fff; }
+
+.settings-actions, .tag-edit-actions {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.settings-actions button, .tag-edit-actions button {
+  min-height: 4rem;
+  border: none;
+  border-radius: 16px;
+  background: #edf3fb;
+  color: #132238;
+  font-size: 1.3rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.danger-button { background: #ffe2e4 !important; color: #a7192b !important; }
+
+.history-list {
+  display: grid;
+  gap: 0.8rem;
+  max-height: 68vh;
+  overflow-y: auto;
+}
+
+.history-item {
+  display: grid;
+  grid-template-columns: 140px 1fr auto;
+  gap: 0.8rem;
+  align-items: center;
+  padding: 0.6rem;
+  border: 2px solid #d9e3f1;
+  border-radius: 14px;
+  background: #f8fbff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.history-item img { width: 140px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 8px; }
+.history-copy { min-width: 0; }
+.history-copy strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.history-copy small { display: block; margin-top: 0.35rem; }
+.history-youtube { min-height: 3rem; border: none; border-radius: 10px; background: #ff0033; color: #fff; font-weight: 800; cursor: pointer; }
+.tag-edit-list { justify-content: flex-start; max-height: 55vh; }
+.tag-edit-actions { grid-template-columns: repeat(3, 1fr); margin-top: 1rem; }
+
+@media (max-width: 560px) {
+  .history-item { grid-template-columns: 90px 1fr; }
+  .history-item img { width: 90px; }
+  .history-youtube { grid-column: 2; }
+}
+
 .preview-image {
   width: 100%;
   max-height: 100%;

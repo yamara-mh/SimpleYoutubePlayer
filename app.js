@@ -52,6 +52,21 @@ const elements = {
   interestSetupOverlay: document.getElementById("interestSetupOverlay"),
   interestTagList: document.getElementById("interestTagList"),
   interestSetupButton: document.getElementById("interestSetupButton"),
+  settingsOverlay: document.getElementById("settingsOverlay"),
+  settingsCloseButton: document.getElementById("settingsCloseButton"),
+  historyButton: document.getElementById("historyButton"),
+  editTagsButton: document.getElementById("editTagsButton"),
+  clearTagsButton: document.getElementById("clearTagsButton"),
+  historyOverlay: document.getElementById("historyOverlay"),
+  historyBackButton: document.getElementById("historyBackButton"),
+  historyList: document.getElementById("historyList"),
+  tagEditOverlay: document.getElementById("tagEditOverlay"),
+  tagEditBackButton: document.getElementById("tagEditBackButton"),
+  tagEditSaveButton: document.getElementById("tagEditSaveButton"),
+  tagEditList: document.getElementById("tagEditList"),
+  tagDoubleButton: document.getElementById("tagDoubleButton"),
+  tagHalfButton: document.getElementById("tagHalfButton"),
+  tagDeleteButton: document.getElementById("tagDeleteButton"),
   playToggle: document.getElementById("playToggle"),
   volumeDown: document.getElementById("volumeDown"),
   volumeUp: document.getElementById("volumeUp"),
@@ -68,6 +83,9 @@ let previewTimer = null;
 let playback = createPlaybackState();
 let playbackPollTimer = null;
 let discoveryButtonsBusy = false;
+let discoverPressed = false;
+let editingTagInterests = null;
+let returnToSettingsAfterSetup = false;
 
 wireEvents();
 renderStaticState();
@@ -199,6 +217,9 @@ function onYouTubeMessage(event) {
     playbackPollTimer = window.setInterval(requestPlaybackInfo, playbackPollMs);
     requestPlaybackInfo();
     applyVolume();
+    if (playback.resumePosition > 0) {
+      sendPlayerCommand("seekTo", [playback.resumePosition, true]);
+    }
     return;
   }
 
@@ -261,7 +282,29 @@ function wireEvents() {
   elements.volumeDown.addEventListener("click", () => changeVolume(-1));
   elements.volumeUp.addEventListener("click", () => changeVolume(1));
   elements.moreButton.addEventListener("click", playMoreVideos);
+  elements.moreButton.addEventListener("dblclick", () => {
+    if (discoverPressed) {
+      openSettings();
+    }
+  });
   elements.discoverButton.addEventListener("click", discoverVideo);
+  elements.discoverButton.addEventListener("pointerdown", () => { discoverPressed = true; });
+  window.addEventListener("pointerup", () => { discoverPressed = false; });
+  window.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      openSettings();
+    }
+  });
+  elements.settingsCloseButton.addEventListener("click", closeModals);
+  elements.historyButton.addEventListener("click", openHistory);
+  elements.editTagsButton.addEventListener("click", openTagEditor);
+  elements.clearTagsButton.addEventListener("click", clearAllTags);
+  elements.historyBackButton.addEventListener("click", openSettings);
+  elements.tagEditBackButton.addEventListener("click", confirmDiscardTagEdits);
+  elements.tagEditSaveButton.addEventListener("click", saveTagEdits);
+  elements.tagDoubleButton.addEventListener("click", () => changeSelectedTags(2));
+  elements.tagHalfButton.addEventListener("click", () => changeSelectedTags(0.5));
+  elements.tagDeleteButton.addEventListener("click", () => changeSelectedTags(0));
   window.addEventListener("beforeunload", finalizeCurrentVideo);
 }
 
@@ -310,6 +353,158 @@ function completeInterestSetup() {
   saveState();
   elements.interestSetupOverlay.classList.add("hidden");
   bootstrap();
+  if (returnToSettingsAfterSetup) {
+    returnToSettingsAfterSetup = false;
+    openSettings();
+  }
+}
+
+function canOpenSettings() {
+  return Boolean(accessToken && state.initialSetupCompleted);
+}
+
+function openSettings() {
+  if (!canOpenSettings()) {
+    return;
+  }
+  closeModals();
+  elements.settingsOverlay.classList.remove("hidden");
+}
+
+function openHistory() {
+  renderHistory();
+  elements.settingsOverlay.classList.add("hidden");
+  elements.historyOverlay.classList.remove("hidden");
+}
+
+function openTagEditor() {
+  editingTagInterests = { ...state.tagInterests };
+  renderTagEditor();
+  elements.settingsOverlay.classList.add("hidden");
+  elements.tagEditOverlay.classList.remove("hidden");
+}
+
+function closeModals() {
+  for (const overlay of [elements.settingsOverlay, elements.historyOverlay, elements.tagEditOverlay]) {
+    overlay.classList.add("hidden");
+  }
+  editingTagInterests = null;
+}
+
+function renderHistory() {
+  const entries = Array.isArray(state.history) ? state.history : [];
+  elements.historyList.replaceChildren(
+    ...entries.slice().reverse().map((entry) => {
+      const item = document.createElement("div");
+      item.className = "history-item";
+      item.tabIndex = 0;
+      item.addEventListener("click", (event) => {
+        if (event.target.closest(".history-youtube")) return;
+        playHistoryEntry(entry);
+      });
+      item.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") playHistoryEntry(entry);
+      });
+      const image = document.createElement("img");
+      image.src = thumbnailUrl(entry.video.id);
+      image.alt = `${entry.video.title} のサムネイル`;
+      const copy = document.createElement("div");
+      copy.className = "history-copy";
+      const title = document.createElement("strong");
+      title.textContent = entry.video.title;
+      const details = document.createElement("small");
+      details.textContent = `${new Date(entry.startedAt).toLocaleString("ja-JP")} / ${formatPosition(entry.position, entry.duration)}`;
+      copy.append(title, details);
+      const youtube = document.createElement("button");
+      youtube.className = "history-youtube";
+      youtube.type = "button";
+      youtube.textContent = "YouTube";
+      youtube.addEventListener("click", () => window.open(`https://www.youtube.com/watch?v=${encodeURIComponent(entry.video.id)}`, "_blank", "noopener"));
+      item.append(image, copy, youtube);
+      return item;
+    })
+  );
+  if (!entries.length) {
+    const empty = document.createElement("p");
+    empty.textContent = "視聴履歴はありません。";
+    elements.historyList.append(empty);
+  }
+}
+
+function formatPosition(position, duration) {
+  const value = Math.max(0, Math.floor(Number(position) || 0));
+  const total = Math.max(0, Math.floor(Number(duration) || 0));
+  const format = (seconds) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+  return `再生位置 ${format(value)}${total ? ` / ${format(total)}` : ""}`;
+}
+
+function playHistoryEntry(entry) {
+  closeModals();
+  finalizeCurrentVideo();
+  const video = { ...entry.video };
+  queueVideo(video, {
+    recordHistory: false,
+    historyIndexOverride: state.historyIds.indexOf(video.id),
+    resumePosition: Number(entry.position) || 0,
+    previewDelayMs: 0,
+    assistText: "履歴から再生しています"
+  });
+}
+
+function renderTagEditor() {
+  const interests = editingTagInterests || {};
+  elements.tagEditList.replaceChildren(
+    ...Object.entries(interests).sort((a, b) => b[1] - a[1]).map(([tag, value], index) => {
+      const wrapper = document.createElement("div");
+      wrapper.className = "interest-tag";
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.id = `edit-tag-${index}`;
+      input.value = tag;
+      const label = document.createElement("label");
+      label.htmlFor = input.id;
+      label.textContent = `${tag} (${value.toFixed(1)})`;
+      wrapper.append(input, label);
+      return wrapper;
+    })
+  );
+}
+
+function changeSelectedTags(multiplier) {
+  if (!editingTagInterests) return;
+  for (const input of elements.tagEditList.querySelectorAll("input:checked")) {
+    if (multiplier === 0) delete editingTagInterests[input.value];
+    else editingTagInterests[input.value] *= multiplier;
+  }
+  renderTagEditor();
+}
+
+function saveTagEdits() {
+  if (!editingTagInterests || !Object.keys(editingTagInterests).length) {
+    window.alert("タグを1つ以上残してください。");
+    return;
+  }
+  state.tagInterests = { ...editingTagInterests };
+  trimTagInterests();
+  saveState();
+  openSettings();
+}
+
+function confirmDiscardTagEdits() {
+  if (window.confirm("変更を破棄しますか？")) openSettings();
+}
+
+function clearAllTags() {
+  if (!window.confirm("タグリストの全消去とは「確認」")) return;
+  if (!window.confirm("全消去すると復元できません「確認」")) return;
+  if (!window.confirm("最終確認「全消去」")) return;
+  state.tagInterests = {};
+  state.initialSetupCompleted = false;
+  returnToSettingsAfterSetup = true;
+  saveState();
+  closeModals();
+  renderInterestSetup();
+  showInterestSetup();
 }
 
 function renderStaticState() {
@@ -657,6 +852,7 @@ function startVideo(video, options) {
   queuedVideo = null;
   currentVideo = video;
   playback = createPlaybackState(video);
+  playback.resumePosition = Number(options.resumePosition) || 0;
   loadVideoMetadata(video);
   hidePreview();
 
@@ -671,6 +867,19 @@ function startVideo(video, options) {
 
   state.lastVideoId = video.id;
   state.lastWatchedAt[video.id] = Date.now();
+  const historyEntry = {
+    video: { ...video },
+    startedAt: Date.now(),
+    position: playback.resumePosition,
+    duration: video.duration || 0
+  };
+  if (options.recordHistory) {
+    state.history = [...(state.history || []), historyEntry].slice(-1000);
+  } else {
+    const existing = (state.history || []).find((entry) => entry.video?.id === video.id);
+    playback.historyEntry = existing || historyEntry;
+  }
+  playback.historyEntry = playback.historyEntry || historyEntry;
   state.viewCounts[video.category] = (state.viewCounts[video.category] || 0) + 1;
   renderCurrentVideo();
   saveState();
@@ -836,7 +1045,9 @@ function createPlaybackState(video) {
     totalSeconds: 0,
     lastPosition: null,
     duration: video?.duration || 0,
-    finalized: false
+    finalized: false,
+    resumePosition: 0,
+    historyEntry: null
   };
 }
 
@@ -864,6 +1075,11 @@ function updatePlaybackInfo(info) {
     }
   }
   playback.lastPosition = position;
+  if (playback.historyEntry) {
+    playback.historyEntry.position = position;
+    playback.historyEntry.duration = playback.duration;
+    saveState();
+  }
 }
 
 function watchedAtLeastHalf() {
@@ -1147,6 +1363,7 @@ function createDefaultState() {
   return {
     historyIds: [],
     historyIndex: -1,
+    history: [],
     isPlaying: false,
     lastVideoId: "",
     lastWatchedAt: {},
