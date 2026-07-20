@@ -399,7 +399,7 @@ function renderHistory() {
       item.className = "history-item";
       item.tabIndex = 0;
       item.addEventListener("click", (event) => {
-        if (event.target.closest(".history-youtube")) return;
+        if (event.target.closest(".history-youtube, .history-delete")) return;
         playHistoryEntry(entry);
       });
       item.addEventListener("keydown", (event) => {
@@ -408,6 +408,11 @@ function renderHistory() {
       const image = document.createElement("img");
       image.src = thumbnailUrl(entry.video.id);
       image.alt = `${entry.video.title} のサムネイル`;
+      const remove = document.createElement("button");
+      remove.className = "history-delete danger-button";
+      remove.type = "button";
+      remove.textContent = "削除";
+      remove.addEventListener("click", () => removeHistoryEntry(entry));
       const copy = document.createElement("div");
       copy.className = "history-copy";
       const title = document.createElement("strong");
@@ -420,7 +425,7 @@ function renderHistory() {
       youtube.type = "button";
       youtube.textContent = "YouTube";
       youtube.addEventListener("click", () => window.open(`https://www.youtube.com/watch?v=${encodeURIComponent(entry.video.id)}`, "_blank", "noopener"));
-      item.append(image, copy, youtube);
+      item.append(remove, image, copy, youtube);
       return item;
     })
   );
@@ -429,6 +434,12 @@ function renderHistory() {
     empty.textContent = "視聴履歴はありません。";
     elements.historyList.append(empty);
   }
+}
+
+function removeHistoryEntry(entry) {
+  state.history = (state.history || []).filter((candidate) => candidate !== entry);
+  saveState();
+  renderHistory();
 }
 
 function formatPosition(position, duration) {

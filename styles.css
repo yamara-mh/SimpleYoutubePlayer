@@ -263,7 +263,7 @@ button {
 
 .history-item {
   display: grid;
-  grid-template-columns: 140px 1fr auto;
+  grid-template-columns: auto 140px 1fr auto;
   gap: 0.8rem;
   align-items: center;
   padding: 0.6rem;
@@ -275,17 +275,19 @@ button {
 }
 
 .history-item img { width: 140px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 8px; }
+.history-delete { min-height: 3rem; padding: 0.5rem; border: none; border-radius: 10px; font-weight: 800; cursor: pointer; }
 .history-copy { min-width: 0; }
 .history-copy strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .history-copy small { display: block; margin-top: 0.35rem; }
 .history-youtube { min-height: 3rem; border: none; border-radius: 10px; background: #ff0033; color: #fff; font-weight: 800; cursor: pointer; }
 .tag-edit-list { justify-content: flex-start; max-height: 55vh; }
+.tag-edit-list .interest-tag label { color: #132238; }
 .tag-edit-actions { grid-template-columns: repeat(3, 1fr); margin-top: 1rem; }
 
 @media (max-width: 560px) {
-  .history-item { grid-template-columns: 90px 1fr; }
+  .history-item { grid-template-columns: auto 90px 1fr; }
   .history-item img { width: 90px; }
-  .history-youtube { grid-column: 2; }
+  .history-youtube { grid-column: 3; }
 }
 
 .preview-image {
@@ -397,20 +399,14 @@ button {
 }
 
 .volume-panel {
-  flex-direction: column;
-  gap: 0.65rem;
-  padding-inline: 1rem;
-}
-
-.panel-title {
-  font-size: clamp(1rem, 2vw, 2rem);
+  padding-inline: 0.5rem;
 }
 
 .volume-row {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: repeat(3, 1fr);
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.35rem;
   width: 100%;
 }
 
@@ -427,6 +423,7 @@ button {
 .volume-level {
   text-align: center;
   font-size: clamp(1.5rem, 3vw, 3rem);
+  line-height: 1.15;
 }
 
 @media (orientation: landscape) {
