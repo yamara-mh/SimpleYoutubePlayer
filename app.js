@@ -4,7 +4,7 @@ const previewDelayWhileShowingMs = 4000;
 const previewDelayBefore15SecondsMs = 3000;
 const defaultVolume = 5;
 const youtubeRegionCode = "JP";
-const youtubeMaxResults = 15;
+const youtubeMaxResults = 50;
 const discoveryMaxResults = 50;
 const discoveryCacheLimit = 100;
 const discoveryTagLimit = 64;
@@ -196,6 +196,7 @@ function mapVideoItem(item) {
     channelId: snippet.channelId || "",
     category: snippet.categoryId || "unknown",
     tags: Array.isArray(snippet.tags) ? snippet.tags : [],
+    tagsLoaded: true,
     duration: parseYouTubeDuration(item.contentDetails?.duration)
   };
 }
@@ -808,6 +809,7 @@ async function playMoreVideos() {
     const actionPreviewDelayMs = getPreviewDelayForAction();
     finalizeCurrentVideo();
     await ensureChannelPlaylists(sourceVideo.channelId);
+    await rankPublicPlaylists(sourceVideo);
     const playlist =
       switchingPreview
         ? await findAnotherPlaylist(sourceVideo.playlistId)
@@ -853,7 +855,9 @@ async function ensureChannelPlaylists(channelId) {
     uploadsGroup: null,
     playlistCursor: 0
   };
-  await loadMorePublicPlaylists();
+  while (!channelPlaylists.allPublicPlaylistsLoaded) {
+    await loadMorePublicPlaylists();
+  }
 }
 
 async function loadMorePublicPlaylists() {
@@ -879,6 +883,44 @@ async function loadMorePublicPlaylists() {
 
 function createPlaylistGroup(id, title) {
   return { id, title, videos: [], nextPageToken: "", loaded: false, exhausted: false, cursor: 0 };
+}
+
+async function rankPublicPlaylists(sourceVideo) {
+  await ensureVideoTags(sourceVideo);
+  const sourceText = `${sourceVideo.title}${sourceVideo.tags.join("")}`;
+  const scores = new Map(channelPlaylists.groups.map((group, index) => [group.id, { group, index, score: 0 }]));
+
+  for (const character of sourceText) {
+    const matching = [...scores.values()].filter(({ group }) => group.title.includes(character));
+    if (!matching.length) {
+      continue;
+    }
+    const share = 1 / matching.length;
+    for (const entry of matching) {
+      entry.score += share;
+    }
+  }
+
+  channelPlaylists.groups.sort((left, right) => {
+    const leftScore = scores.get(left.id);
+    const rightScore = scores.get(right.id);
+    return rightScore.score - leftScore.score || leftScore.index - rightScore.index;
+  });
+  channelPlaylists.playlistCursor = 0;
+}
+
+async function ensureVideoTags(video) {
+  if (video.tagsLoaded) {
+    return;
+  }
+
+  const data = await fetchYouTube("videos", {
+    part: "snippet",
+    id: video.id
+  });
+  const details = data.items?.[0]?.snippet;
+  video.tags = Array.isArray(details?.tags) ? details.tags : [];
+  video.tagsLoaded = true;
 }
 
 async function findNextPlaylistVideo(playlistId) {
@@ -1008,7 +1050,9 @@ function mapPlaylistItem(item, group) {
     channel: snippet.videoOwnerChannelTitle || snippet.channelTitle || "YouTube",
     channelId: snippet.videoOwnerChannelId || snippet.channelId || channelPlaylists.channelId,
     category: "playlist",
-    playlistId: group.id
+    playlistId: group.id,
+    tags: [],
+    tagsLoaded: false
   };
   videoMap.set(id, video);
   return video;
@@ -1371,7 +1415,8 @@ function mapFavoritePlaylistItem(item, channel) {
     channelId: channel.id,
     category: "channel",
     playlistId: channel.uploadsPlaylistId,
-    tags: []
+    tags: [],
+    tagsLoaded: false
   };
 }
 
