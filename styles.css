@@ -379,6 +379,11 @@ button {
   cursor: pointer;
 }
 
+.control-size-toggle:focus-visible {
+  outline: 3px solid #1f72ff;
+  outline-offset: 3px;
+}
+
 .controls-row {
   flex: 1;
   display: grid;

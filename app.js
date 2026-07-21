@@ -604,7 +604,6 @@ function setControlButtonContent(button, emoji, label) {
 function toggleControlSize() {
   const isCompact = elements.appShell.classList.toggle("compact-controls");
   elements.controlSizeToggle.setAttribute("aria-pressed", String(isCompact));
-  elements.controlSizeToggle.textContent = isCompact ? "大きく表示" : "小さく表示";
 }
 
 function showAuthPrompt() {
