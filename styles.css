@@ -284,6 +284,8 @@ button {
 .history-copy strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .history-copy small { display: block; margin-top: 0.35rem; }
 .history-youtube { min-height: 3rem; border: none; border-radius: 10px; background: #ff0033; color: #fff; font-weight: 800; cursor: pointer; }
+.channel-history-item { grid-template-columns: auto 1fr auto; }
+.channel-history-item .history-copy { padding: 0.5rem; }
 .tag-edit-list { justify-content: flex-start; max-height: 55vh; }
 .tag-edit-list .interest-tag label { color: #132238; }
 .tag-edit-actions { grid-template-columns: repeat(3, 1fr); margin-top: 1rem; }

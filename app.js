@@ -10,6 +10,11 @@ const discoveryCacheLimit = 100;
 const discoveryTagLimit = 64;
 const tagInterestLimit = 512;
 const discoveryRefreshMs = 6 * 60 * 60 * 1000;
+const favoriteChannelLimit = 256;
+const favoriteChannelSelectionLimit = 64;
+const favoriteChannelVideoLimit = 100;
+const favoriteChannelCacheRefreshMs = 2 * 60 * 60 * 1000;
+const favoriteChannelMinimumPoints = 3;
 const playbackPollMs = 1000;
 const minimumTrackedPlaybackSeconds = 15;
 const shortVideoSeconds = 30;
@@ -25,6 +30,7 @@ const initialInterestTags = [
   "政治", "金融", "経済", "雑学", "哲学", "心理学", "解説", "本要約", "技術", "美術", "語学", "歴史", "地理", "IT", "AI", "宇宙",
 ];
 const recentSearchTagLimit = 6;
+const recentSearchChannelLimit = 6;
 
 // OAuth 2.0 implicit flow — client_id is a public identifier (not a secret).
 // client_secret is intentionally absent; the implicit flow does not require it.
@@ -55,11 +61,17 @@ const elements = {
   settingsOverlay: document.getElementById("settingsOverlay"),
   settingsCloseButton: document.getElementById("settingsCloseButton"),
   historyButton: document.getElementById("historyButton"),
+  channelHistoryButton: document.getElementById("channelHistoryButton"),
   editTagsButton: document.getElementById("editTagsButton"),
+  editChannelsButton: document.getElementById("editChannelsButton"),
   clearTagsButton: document.getElementById("clearTagsButton"),
+  clearChannelsButton: document.getElementById("clearChannelsButton"),
   historyOverlay: document.getElementById("historyOverlay"),
   historyBackButton: document.getElementById("historyBackButton"),
   historyList: document.getElementById("historyList"),
+  channelHistoryOverlay: document.getElementById("channelHistoryOverlay"),
+  channelHistoryBackButton: document.getElementById("channelHistoryBackButton"),
+  channelHistoryList: document.getElementById("channelHistoryList"),
   tagEditOverlay: document.getElementById("tagEditOverlay"),
   tagEditBackButton: document.getElementById("tagEditBackButton"),
   tagEditSaveButton: document.getElementById("tagEditSaveButton"),
@@ -67,6 +79,13 @@ const elements = {
   tagDoubleButton: document.getElementById("tagDoubleButton"),
   tagHalfButton: document.getElementById("tagHalfButton"),
   tagDeleteButton: document.getElementById("tagDeleteButton"),
+  channelEditOverlay: document.getElementById("channelEditOverlay"),
+  channelEditBackButton: document.getElementById("channelEditBackButton"),
+  channelEditSaveButton: document.getElementById("channelEditSaveButton"),
+  channelEditList: document.getElementById("channelEditList"),
+  channelDoubleButton: document.getElementById("channelDoubleButton"),
+  channelHalfButton: document.getElementById("channelHalfButton"),
+  channelDeleteButton: document.getElementById("channelDeleteButton"),
   playToggle: document.getElementById("playToggle"),
   volumeDown: document.getElementById("volumeDown"),
   volumeUp: document.getElementById("volumeUp"),
@@ -86,6 +105,8 @@ let playback = createPlaybackState();
 let playbackPollTimer = null;
 let discoveryButtonsBusy = false;
 let editingTagInterests = null;
+let editingFavoriteChannels = null;
+let discoveryTurn = state.discoveryTurn || "tag";
 let returnToSettingsAfterSetup = false;
 let playGesture = null;
 let suppressPlayClick = false;
@@ -298,14 +319,23 @@ function wireEvents() {
   });
   elements.settingsCloseButton.addEventListener("click", closeModals);
   elements.historyButton.addEventListener("click", openHistory);
+  elements.channelHistoryButton.addEventListener("click", openChannelHistory);
   elements.editTagsButton.addEventListener("click", openTagEditor);
+  elements.editChannelsButton.addEventListener("click", openChannelEditor);
   elements.clearTagsButton.addEventListener("click", clearAllTags);
+  elements.clearChannelsButton.addEventListener("click", clearAllChannels);
   elements.historyBackButton.addEventListener("click", openSettings);
+  elements.channelHistoryBackButton.addEventListener("click", openSettings);
   elements.tagEditBackButton.addEventListener("click", confirmDiscardTagEdits);
   elements.tagEditSaveButton.addEventListener("click", saveTagEdits);
   elements.tagDoubleButton.addEventListener("click", () => changeSelectedTags(2));
   elements.tagHalfButton.addEventListener("click", () => changeSelectedTags(0.5));
   elements.tagDeleteButton.addEventListener("click", () => changeSelectedTags(0));
+  elements.channelEditBackButton.addEventListener("click", confirmDiscardChannelEdits);
+  elements.channelEditSaveButton.addEventListener("click", saveChannelEdits);
+  elements.channelDoubleButton.addEventListener("click", () => changeSelectedChannels(2));
+  elements.channelHalfButton.addEventListener("click", () => changeSelectedChannels(0.5));
+  elements.channelDeleteButton.addEventListener("click", () => changeSelectedChannels(0));
   window.addEventListener("beforeunload", finalizeCurrentVideo);
 }
 
@@ -443,6 +473,12 @@ function openHistory() {
   elements.historyOverlay.classList.remove("hidden");
 }
 
+function openChannelHistory() {
+  renderChannelHistory();
+  elements.settingsOverlay.classList.add("hidden");
+  elements.channelHistoryOverlay.classList.remove("hidden");
+}
+
 function openTagEditor() {
   editingTagInterests = { ...state.tagInterests };
   renderTagEditor();
@@ -450,11 +486,25 @@ function openTagEditor() {
   elements.tagEditOverlay.classList.remove("hidden");
 }
 
+function openChannelEditor() {
+  editingFavoriteChannels = cloneFavoriteChannels();
+  renderChannelEditor();
+  elements.settingsOverlay.classList.add("hidden");
+  elements.channelEditOverlay.classList.remove("hidden");
+}
+
 function closeModals() {
-  for (const overlay of [elements.settingsOverlay, elements.historyOverlay, elements.tagEditOverlay]) {
+  for (const overlay of [
+    elements.settingsOverlay,
+    elements.historyOverlay,
+    elements.channelHistoryOverlay,
+    elements.tagEditOverlay,
+    elements.channelEditOverlay
+  ]) {
     overlay.classList.add("hidden");
   }
   editingTagInterests = null;
+  editingFavoriteChannels = null;
 }
 
 function renderHistory() {
@@ -507,6 +557,46 @@ function removeHistoryEntry(entry) {
   state.history = (state.history || []).filter((candidate) => candidate !== entry);
   saveState();
   renderHistory();
+}
+
+function renderChannelHistory() {
+  const entries = Object.values(state.favoriteChannels);
+  elements.channelHistoryList.replaceChildren(
+    ...entries.sort((left, right) => right.viewPoints - left.viewPoints).map((channel) => {
+      const item = document.createElement("div");
+      item.className = "history-item channel-history-item";
+      const copy = document.createElement("div");
+      copy.className = "history-copy";
+      const title = document.createElement("strong");
+      title.textContent = channel.name;
+      const details = document.createElement("small");
+      details.textContent = `視聴ポイント ${channel.viewPoints.toFixed(1)}`;
+      copy.append(title, details);
+      const youtube = document.createElement("button");
+      youtube.className = "history-youtube";
+      youtube.type = "button";
+      youtube.textContent = "チャンネル";
+      youtube.addEventListener("click", () => window.open(
+        `https://www.youtube.com/channel/${encodeURIComponent(channel.id)}`, "_blank", "noopener"
+      ));
+      const remove = document.createElement("button");
+      remove.className = "history-delete danger-button";
+      remove.type = "button";
+      remove.textContent = "削除";
+      remove.addEventListener("click", () => {
+        delete state.favoriteChannels[channel.id];
+        saveState();
+        renderChannelHistory();
+      });
+      item.append(remove, copy, youtube);
+      return item;
+    })
+  );
+  if (!entries.length) {
+    const empty = document.createElement("p");
+    empty.textContent = "お気に入りチャンネルはありません。";
+    elements.channelHistoryList.append(empty);
+  }
 }
 
 function formatPosition(position, duration) {
@@ -578,6 +668,53 @@ function confirmDiscardTagEdits() {
   if (window.confirm("タグを編集せずに戻りますか？")) openSettings();
 }
 
+function cloneFavoriteChannels() {
+  return JSON.parse(JSON.stringify(state.favoriteChannels || {}));
+}
+
+function renderChannelEditor() {
+  const channels = editingFavoriteChannels || {};
+  elements.channelEditList.replaceChildren(
+    ...Object.values(channels).sort((a, b) => b.viewPoints - a.viewPoints).map((channel, index) => {
+      const wrapper = document.createElement("div");
+      wrapper.className = "interest-tag";
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.id = `edit-channel-${index}`;
+      input.value = channel.id;
+      const label = document.createElement("label");
+      label.htmlFor = input.id;
+      label.textContent = `${channel.name} (${channel.viewPoints.toFixed(1)})`;
+      wrapper.append(input, label);
+      return wrapper;
+    })
+  );
+}
+
+function changeSelectedChannels(multiplier) {
+  if (!editingFavoriteChannels) return;
+  const selected = new Set([...elements.channelEditList.querySelectorAll("input:checked")].map((input) => input.value));
+  for (const id of selected) {
+    if (multiplier === 0) delete editingFavoriteChannels[id];
+    else editingFavoriteChannels[id].viewPoints *= multiplier;
+  }
+  renderChannelEditor();
+  for (const input of elements.channelEditList.querySelectorAll("input")) {
+    input.checked = selected.has(input.value) && multiplier !== 0;
+  }
+}
+
+function saveChannelEdits() {
+  state.favoriteChannels = editingFavoriteChannels || {};
+  trimFavoriteChannels();
+  saveState();
+  openSettings();
+}
+
+function confirmDiscardChannelEdits() {
+  if (window.confirm("チャンネルを編集せずに戻りますか？")) openSettings();
+}
+
 function clearAllTags() {
   if (!window.confirm("タグリストを全て削除します。よく分からなければ「キャンセル」を押してください。")) return;
   if (!window.confirm("タグリストはこれまであなたが見た動画の傾向を記録した情報です。削除するとあなたの好みに合わせた動画が再生されなくなります。よく分からなければ「キャンセル」を押してください。")) return;
@@ -589,6 +726,15 @@ function clearAllTags() {
   closeModals();
   renderInterestSetup();
   showInterestSetup();
+}
+
+function clearAllChannels() {
+  if (!window.confirm("チャンネルリストを全て削除します。よく分からなければ「キャンセル」を押してください。")) return;
+  if (!window.confirm("チャンネルの視聴ポイントと動画リストも削除されます。よく分からなければ「キャンセル」を押してください。")) return;
+  if (!window.confirm("削除すると元に戻せません。本当に削除しますか？")) return;
+  state.favoriteChannels = {};
+  state.recentSearchChannels = [];
+  saveState();
 }
 
 function renderStaticState() {
@@ -901,8 +1047,8 @@ async function discoverVideo() {
     try {
       window.clearTimeout(previewTimer);
       finalizeCurrentVideo();
-      const tag = selectDiscoveryTag();
-      await queueDiscoveryVideo(tag, true, "別の動画を探しています", previewDelayWhileShowingMs);
+      const source = await selectDiscoverySource(true);
+      await queueDiscoverySource(source, true, "別の動画を探しています", previewDelayWhileShowingMs);
     } finally {
       setDiscoveryButtonsBusy(false);
     }
@@ -916,10 +1062,12 @@ async function discoverVideo() {
 
   setDiscoveryButtonsBusy(true);
   finalizeCurrentVideo();
-  const tag = sourceVideo?.discoveryTag || selectDiscoveryTag();
   try {
-    await queueDiscoveryVideo(
-      tag,
+    const source = sourceVideo?.discoveryTag
+      ? { type: "tag", value: sourceVideo.discoveryTag }
+      : await selectDiscoverySource();
+    await queueDiscoverySource(
+      source,
       false,
       "おすすめ動画を探しています",
       getPreviewDelayForAction()
@@ -927,6 +1075,31 @@ async function discoverVideo() {
   } finally {
     setDiscoveryButtonsBusy(false);
   }
+}
+
+async function selectDiscoverySource(forceRefresh = false) {
+  if (discoveryTurn === "channel") {
+    const channel = selectFavoriteChannel();
+    if (channel) {
+      discoveryTurn = "tag";
+      state.discoveryTurn = discoveryTurn;
+      saveState();
+      return { type: "channel", value: channel };
+    }
+  }
+  discoveryTurn = "channel";
+  state.discoveryTurn = discoveryTurn;
+  saveState();
+  return { type: "tag", value: selectDiscoveryTag() };
+}
+
+async function queueDiscoverySource(source, forceRefresh, assistText, actionPreviewDelayMs) {
+  if (!source) return;
+  if (source.type === "channel") {
+    await queueFavoriteChannelVideo(source.value, forceRefresh, assistText, actionPreviewDelayMs);
+    return;
+  }
+  await queueDiscoveryVideo(source.value, forceRefresh, assistText, actionPreviewDelayMs);
 }
 
 function queueVideo(video, options) {
@@ -971,6 +1144,7 @@ function startVideo(video, options) {
 
   state.lastVideoId = video.id;
   state.lastWatchedAt[video.id] = Date.now();
+  registerFavoriteChannel(video);
   const historyEntry = options.historyEntry || {
     video: { ...video },
     startedAt: Date.now(),
@@ -1112,6 +1286,97 @@ async function getTagVideoList(tag, forceRefresh) {
   return state.tagVideoLists[tag] || { videos: videosForTag };
 }
 
+function selectFavoriteChannel() {
+  const ranked = Object.values(state.favoriteChannels || {})
+    .filter((channel) => channel.viewPoints >= favoriteChannelMinimumPoints)
+    .sort((left, right) => right.viewPoints - left.viewPoints)
+    .slice(0, favoriteChannelSelectionLimit);
+  if (ranked.length < recentSearchChannelLimit) {
+    return null;
+  }
+  const eligible = ranked.filter((channel) => !state.recentSearchChannels.includes(channel.id));
+  const selected = chooseWeightedChannel(eligible);
+  if (!selected) return null;
+  state.recentSearchChannels = [
+    selected.id,
+    ...state.recentSearchChannels.filter((id) => id !== selected.id)
+  ].slice(0, recentSearchChannelLimit);
+  saveState();
+  return selected;
+}
+
+function chooseWeightedChannel(channels) {
+  const total = channels.reduce((sum, channel) => sum + channel.viewPoints, 0);
+  let target = Math.random() * total;
+  for (const channel of channels) {
+    target -= channel.viewPoints;
+    if (target <= 0) return channel;
+  }
+  return channels[0] || null;
+}
+
+async function queueFavoriteChannelVideo(channel, forceRefresh, assistText, actionPreviewDelayMs) {
+  try {
+    const group = await getFavoriteChannelVideoList(channel, false);
+    const video = group.videos.find((item) => item.id !== currentVideo?.id);
+    if (!video) {
+      setAssistMessage("再生できる動画がありません");
+      return;
+    }
+    queueVideo(video, {
+      recordHistory: true,
+      historyIndexOverride: null,
+      previewDelayMs: actionPreviewDelayMs,
+      assistText
+    });
+  } catch (error) {
+    console.error(error);
+    setAssistMessage("チャンネル動画の検索に失敗しました");
+  }
+}
+
+async function getFavoriteChannelVideoList(channel, forceRefresh) {
+  const group = channel.videoList || { videos: [], refreshAt: 0 };
+  channel.videoList = group;
+  if (!forceRefresh && group.refreshAt > Date.now()) {
+    return group;
+  }
+  const data = await fetchYouTube("playlistItems", {
+    part: "snippet,contentDetails",
+    playlistId: channel.uploadsPlaylistId,
+    maxResults: String(discoveryMaxResults)
+  });
+  const existingIds = new Set(group.videos.map((video) => video.id));
+  const watchedIds = new Set(state.historyIds);
+  const added = (data.items || [])
+    .map((item) => mapFavoritePlaylistItem(item, channel))
+    .filter((video) => video && !existingIds.has(video.id) && !watchedIds.has(video.id));
+  group.videos = [...added, ...group.videos].slice(0, favoriteChannelVideoLimit);
+  group.refreshAt = Date.now() + favoriteChannelCacheRefreshMs;
+  for (const video of group.videos) videoMap.set(video.id, video);
+  state.recentSearchChannels = state.recentSearchChannels || [];
+  trimFavoriteChannels();
+  saveState();
+  return group;
+}
+
+function mapFavoritePlaylistItem(item, channel) {
+  const id = item?.contentDetails?.videoId;
+  const snippet = item?.snippet;
+  if (!id || !snippet?.title || snippet.title === "Deleted video" || snippet.title === "Private video") {
+    return null;
+  }
+  return {
+    id,
+    title: snippet.title,
+    channel: channel.name,
+    channelId: channel.id,
+    category: "channel",
+    playlistId: channel.uploadsPlaylistId,
+    tags: []
+  };
+}
+
 function selectDiscoveryTag() {
   const ranked = Object.entries(state.tagInterests)
     .filter(([, value]) => Number.isFinite(value) && value > 0)
@@ -1220,10 +1485,14 @@ function finalizeCurrentVideo() {
 
 function updateTagInterests(video, playbackSeconds) {
   const tags = [...new Set(video.tags?.length ? video.tags : [video.discoveryTag])].filter(Boolean);
+  let channelPoints = video.channelId ? Math.sqrt(playbackSeconds / 300) : 0;
   tags.forEach((tag, index) => {
-    state.tagInterests[tag] = (state.tagInterests[tag] || 0) +
-      Math.sqrt(playbackSeconds / 300) * Math.pow(0.9, index);
+    const points = Math.sqrt(playbackSeconds / 300) * Math.pow(0.9, index);
+    state.tagInterests[tag] = (state.tagInterests[tag] || 0) + points;
+    channelPoints += points;
   });
+  const channel = state.favoriteChannels?.[video.channelId];
+  if (channel) channel.viewPoints += channelPoints;
   console.info("[tagInterests] Updated after playback", {
     videoId: video.id,
     playbackSeconds,
@@ -1231,6 +1500,30 @@ function updateTagInterests(video, playbackSeconds) {
     interests: state.tagInterests
   });
   trimTagInterests();
+}
+
+async function registerFavoriteChannel(video) {
+  if (!video?.channelId || state.favoriteChannels[video.channelId]) return;
+  try {
+    const data = await fetchYouTube("channels", {
+      part: "snippet,contentDetails",
+      id: video.channelId
+    });
+    const item = data.items?.[0];
+    const uploadsPlaylistId = item?.contentDetails?.relatedPlaylists?.uploads;
+    if (!item?.id || !uploadsPlaylistId) return;
+    state.favoriteChannels[item.id] = {
+      id: item.id,
+      name: item.snippet?.title || video.channel || "YouTube",
+      uploadsPlaylistId,
+      viewPoints: 0,
+      videoList: { videos: [], refreshAt: 0 }
+    };
+    trimFavoriteChannels();
+    saveState();
+  } catch (error) {
+    console.error(error);
+  }
 }
 
 function moveDiscoveryVideoToBack(video) {
@@ -1293,6 +1586,22 @@ function trimTagVideoLists(protectedTag = "") {
     .slice(0, Math.max(0, Object.keys(state.tagVideoLists).length - discoveryTagLimit));
   for (const tag of tagsToRemove) {
     delete state.tagVideoLists[tag];
+  }
+
+  function trimFavoriteChannels() {
+    const channels = Object.values(state.favoriteChannels || {})
+      .sort((left, right) => right.viewPoints - left.viewPoints);
+    const keep = new Set(channels.slice(0, favoriteChannelLimit).map((channel) => channel.id));
+    for (const id of Object.keys(state.favoriteChannels || {})) {
+      if (!keep.has(id)) delete state.favoriteChannels[id];
+    }
+    const videoListKeep = new Set(channels.slice(0, favoriteChannelSelectionLimit).map((channel) => channel.id));
+    for (const channel of Object.values(state.favoriteChannels)) {
+      if (!videoListKeep.has(channel.id)) delete channel.videoList;
+    }
+    state.recentSearchChannels = (state.recentSearchChannels || [])
+      .filter((id) => state.favoriteChannels[id])
+      .slice(0, recentSearchChannelLimit);
   }
 }
 
@@ -1451,7 +1760,16 @@ function loadState() {
       return createDefaultState();
     }
 
-    return { ...createDefaultState(), ...JSON.parse(raw) };
+    const loaded = { ...createDefaultState(), ...JSON.parse(raw) };
+    loaded.favoriteChannels = loaded.favoriteChannels || {};
+    loaded.recentSearchChannels = Array.isArray(loaded.recentSearchChannels)
+      ? loaded.recentSearchChannels
+      : [];
+    for (const channel of Object.values(loaded.favoriteChannels)) {
+      channel.viewPoints = Number(channel.viewPoints) || 0;
+      channel.videoList = channel.videoList || { videos: [], refreshAt: 0 };
+    }
+    return loaded;
   } catch (error) {
     return createDefaultState();
   }
@@ -1474,6 +1792,9 @@ function createDefaultState() {
     tagInterests: {},
     tagVideoLists: {},
     recentSearchTags: [],
+    favoriteChannels: {},
+    recentSearchChannels: [],
+    discoveryTurn: "tag",
     lastUsageDate: "",
     initialSetupCompleted: false
   };

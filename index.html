@@ -22,8 +22,11 @@
         <h2 id="settingsTitle">設定</h2>
         <div class="settings-actions">
           <button id="historyButton" type="button">視聴履歴</button>
+          <button id="channelHistoryButton" type="button">お気に入りチャンネル一覧</button>
           <button id="editTagsButton" type="button">タグリストの編集</button>
+          <button id="editChannelsButton" type="button">お気に入りチャンネル一覧の編集</button>
           <button id="clearTagsButton" type="button" class="danger-button">タグリストを全消去</button>
+          <button id="clearChannelsButton" type="button" class="danger-button">チャンネルリストを全消去</button>
         </div>
       </section>
     </div>
@@ -32,6 +35,13 @@
         <button id="historyBackButton" class="modal-back" type="button">戻る</button>
         <h2 id="historyTitle">視聴履歴</h2>
         <div id="historyList" class="history-list"></div>
+      </section>
+    </div>
+    <div id="channelHistoryOverlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="channelHistoryTitle">
+      <section class="modal-panel modal-panel-wide">
+        <button id="channelHistoryBackButton" class="modal-back" type="button">戻る</button>
+        <h2 id="channelHistoryTitle">お気に入りチャンネル一覧</h2>
+        <div id="channelHistoryList" class="history-list"></div>
       </section>
     </div>
     <div id="tagEditOverlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="tagEditTitle">
@@ -44,6 +54,19 @@
           <button id="tagDoubleButton" type="button">x2.0</button>
           <button id="tagHalfButton" type="button">x0.5</button>
           <button id="tagDeleteButton" type="button" class="danger-button">削除</button>
+        </div>
+        <div id="channelEditOverlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="channelEditTitle">
+          <section class="modal-panel modal-panel-wide">
+            <button id="channelEditBackButton" class="modal-back" type="button">戻る</button>
+            <button id="channelEditSaveButton" class="modal-save" type="button">保存</button>
+            <h2 id="channelEditTitle">お気に入りチャンネル一覧の編集</h2>
+            <div id="channelEditList" class="interest-tag-list tag-edit-list"></div>
+            <div class="tag-edit-actions">
+              <button id="channelDoubleButton" type="button">x2.0</button>
+              <button id="channelHalfButton" type="button">x0.5</button>
+              <button id="channelDeleteButton" type="button" class="danger-button">削除</button>
+            </div>
+          </section>
         </div>
       </section>
     </div>
