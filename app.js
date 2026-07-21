@@ -1646,7 +1646,7 @@ function createDefaultState() {
     favoriteChannels: {},
     channelVideoLists: {},
     recentSearchChannels: [],
-    discoveryTurn: "tag",
+    discoveryTurn: "channel",
     lastUsageDate: "",
     initialSetupCompleted: false
   };
