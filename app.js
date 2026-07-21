@@ -1585,22 +1585,22 @@ function trimTagVideoLists(protectedTag = "") {
   for (const tag of tagsToRemove) {
     delete state.tagVideoLists[tag];
   }
+}
 
-  function trimFavoriteChannels() {
-    const channels = Object.values(state.favoriteChannels || {})
-      .sort((left, right) => right.viewPoints - left.viewPoints);
-    const keep = new Set(channels.slice(0, favoriteChannelLimit).map((channel) => channel.id));
-    for (const id of Object.keys(state.favoriteChannels || {})) {
-      if (!keep.has(id)) delete state.favoriteChannels[id];
-    }
-    const videoListKeep = new Set(channels.slice(0, favoriteChannelSelectionLimit).map((channel) => channel.id));
-    for (const channel of Object.values(state.favoriteChannels)) {
-      if (!videoListKeep.has(channel.id)) delete channel.videoList;
-    }
-    state.recentSearchChannels = (state.recentSearchChannels || [])
-      .filter((id) => state.favoriteChannels[id])
-      .slice(0, recentSearchChannelLimit);
+function trimFavoriteChannels() {
+  const channels = Object.values(state.favoriteChannels || {})
+    .sort((left, right) => right.viewPoints - left.viewPoints);
+  const keep = new Set(channels.slice(0, favoriteChannelLimit).map((channel) => channel.id));
+  for (const id of Object.keys(state.favoriteChannels || {})) {
+    if (!keep.has(id)) delete state.favoriteChannels[id];
   }
+  const videoListKeep = new Set(channels.slice(0, favoriteChannelSelectionLimit).map((channel) => channel.id));
+  for (const channel of Object.values(state.favoriteChannels)) {
+    if (!videoListKeep.has(channel.id)) delete channel.videoList;
+  }
+  state.recentSearchChannels = (state.recentSearchChannels || [])
+    .filter((id) => state.favoriteChannels[id])
+    .slice(0, recentSearchChannelLimit);
 }
 
 function parseYouTubeDuration(value) {
