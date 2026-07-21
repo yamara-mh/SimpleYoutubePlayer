@@ -1063,9 +1063,7 @@ async function discoverVideo() {
   setDiscoveryButtonsBusy(true);
   finalizeCurrentVideo();
   try {
-    const source = sourceVideo?.discoveryTag
-      ? { type: "tag", value: sourceVideo.discoveryTag }
-      : await selectDiscoverySource();
+    const source = await selectDiscoverySource();
     await queueDiscoverySource(
       source,
       false,
