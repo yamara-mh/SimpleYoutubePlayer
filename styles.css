@@ -123,6 +123,10 @@ button {
   min-height: 100vh;
 }
 
+.app-shell.compact-controls {
+  grid-template-rows: minmax(0, 9fr) minmax(0, 1fr);
+}
+
 .player-section {
   display: flex;
   min-height: 0;
@@ -353,9 +357,31 @@ button {
 }
 
 .control-section {
+  position: relative;
   display: flex;
   min-height: 0;
   padding: 0.6rem 1rem 1rem;
+}
+
+.control-size-toggle {
+  position: absolute;
+  top: 0.1rem;
+  right: 1rem;
+  z-index: 1;
+  min-height: 2rem;
+  padding: 0.2rem 0.7rem;
+  border: none;
+  border-radius: 10px;
+  background: #edf3fb;
+  color: #132238;
+  font-size: 0.85rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.control-size-toggle:focus-visible {
+  outline: 3px solid #1f72ff;
+  outline-offset: 3px;
 }
 
 .controls-row {
@@ -380,6 +406,11 @@ button {
   font-size: clamp(1.5rem, 3vw, 3rem);
   font-weight: 800;
   box-shadow: 0 14px 30px rgba(16, 38, 66, 0.15);
+}
+
+.control-emoji,
+.control-label {
+  display: block;
 }
 
 .primary-button {
@@ -424,6 +455,15 @@ button {
   text-align: center;
   font-size: clamp(1.5rem, 3vw, 3rem);
   line-height: 1.15;
+}
+
+.app-shell.compact-controls .control-emoji,
+.app-shell.compact-controls .control-label {
+  display: inline;
+}
+
+.app-shell.compact-controls .control-label::before {
+  content: " ";
 }
 
 @media (orientation: landscape) {

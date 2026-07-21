@@ -71,20 +71,28 @@
       </section>
 
       <section class="control-section" aria-label="操作ボタン">
-
+        <button id="controlSizeToggle" class="control-size-toggle" type="button" aria-pressed="false">
+          ボタンサイズ切り替え
+        </button>
         <div class="controls-row">
-          <button id="playToggle" class="control-button primary-button" type="button">▶️<br>再生</button>
+          <button id="playToggle" class="control-button primary-button" type="button">
+            <span class="control-emoji">▶️</span><span class="control-label">再生</span>
+          </button>
 
           <div class="control-button volume-panel" aria-label="音量操作">
             <div class="volume-row">
               <button id="volumeDown" class="mini-button" type="button" aria-label="音量を下げる">➖</button>
-              <span class="volume-level">🎵<br><span id="volumeLevel">5</span></span>
+              <span class="volume-level"><span class="control-emoji">🎵</span><span id="volumeLevel" class="control-label">5</span></span>
               <button id="volumeUp" class="mini-button" type="button" aria-label="音量を上げる">➕</button>
             </div>
           </div>
 
-          <button id="moreButton" class="control-button" type="button">💘<br>もっと見る</button>
-          <button id="discoverButton" class="control-button primary-button" type="button">🔍<br>探す</button>
+          <button id="moreButton" class="control-button" type="button">
+            <span class="control-emoji">💘</span><span class="control-label">もっと見る</span>
+          </button>
+          <button id="discoverButton" class="control-button primary-button" type="button">
+            <span class="control-emoji">🔍</span><span class="control-label">探す</span>
+          </button>
         </div>
       </section>
     </main>

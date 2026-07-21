@@ -72,7 +72,9 @@ const elements = {
   volumeUp: document.getElementById("volumeUp"),
   volumeLevel: document.getElementById("volumeLevel"),
   moreButton: document.getElementById("moreButton"),
-  discoverButton: document.getElementById("discoverButton")
+  discoverButton: document.getElementById("discoverButton"),
+  controlSizeToggle: document.getElementById("controlSizeToggle"),
+  appShell: document.querySelector(".app-shell")
 };
 
 const state = loadState();
@@ -236,14 +238,14 @@ function onYouTubeMessage(event) {
 function handlePlayerStateChange(stateCode) {
   if (stateCode === 1) {
     state.isPlaying = true;
-    elements.playToggle.innerHTML = "⏸️<br>止める";
+    setControlButtonContent(elements.playToggle, "⏸️", "止める");
     saveState();
     return;
   }
 
   if (stateCode === 2 || stateCode === 0) {
     state.isPlaying = false;
-    elements.playToggle.innerHTML = "▶️<br>再生";
+    setControlButtonContent(elements.playToggle, "▶️", "再生");
     saveState();
     if (stateCode === 0) {
       finalizeCurrentVideo();
@@ -288,6 +290,7 @@ function wireEvents() {
   elements.volumeUp.addEventListener("click", () => changeVolume(1));
   elements.moreButton.addEventListener("click", playMoreVideos);
   elements.discoverButton.addEventListener("click", discoverVideo);
+  elements.controlSizeToggle.addEventListener("click", toggleControlSize);
   window.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       openSettings();
@@ -590,7 +593,17 @@ function clearAllTags() {
 
 function renderStaticState() {
   elements.volumeLevel.textContent = String(state.volume);
-  elements.playToggle.innerHTML = state.isPlaying ? "⏸️<br>停止" : "▶️<br>再生";
+  setControlButtonContent(elements.playToggle, state.isPlaying ? "⏸️" : "▶️", state.isPlaying ? "停止" : "再生");
+}
+
+function setControlButtonContent(button, emoji, label) {
+  button.querySelector(".control-emoji").textContent = emoji;
+  button.querySelector(".control-label").textContent = label;
+}
+
+function toggleControlSize() {
+  const isCompact = elements.appShell.classList.toggle("compact-controls");
+  elements.controlSizeToggle.setAttribute("aria-pressed", String(isCompact));
 }
 
 function showAuthPrompt() {
