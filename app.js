@@ -83,9 +83,10 @@ let previewTimer = null;
 let playback = createPlaybackState();
 let playbackPollTimer = null;
 let discoveryButtonsBusy = false;
-let discoverPressed = false;
 let editingTagInterests = null;
 let returnToSettingsAfterSetup = false;
+let playGesture = null;
+let suppressPlayClick = false;
 
 wireEvents();
 renderStaticState();
@@ -278,18 +279,15 @@ function wireEvents() {
   elements.authButton.addEventListener("click", initiateOAuth);
   elements.interestSetupButton.addEventListener("click", completeInterestSetup);
   elements.interestTagList.addEventListener("change", updateInterestSetupButton);
-  elements.playToggle.addEventListener("click", togglePlayback);
+  elements.playToggle.addEventListener("click", handlePlayToggleClick);
+  elements.playToggle.addEventListener("pointerdown", startPlayGesture);
+  elements.playToggle.addEventListener("pointermove", trackPlayGesture);
+  elements.playToggle.addEventListener("pointerup", finishPlayGesture);
+  elements.playToggle.addEventListener("pointercancel", cancelPlayGesture);
   elements.volumeDown.addEventListener("click", () => changeVolume(-1));
   elements.volumeUp.addEventListener("click", () => changeVolume(1));
   elements.moreButton.addEventListener("click", playMoreVideos);
-  elements.moreButton.addEventListener("dblclick", () => {
-    if (discoverPressed) {
-      openSettings();
-    }
-  });
   elements.discoverButton.addEventListener("click", discoverVideo);
-  elements.discoverButton.addEventListener("pointerdown", () => { discoverPressed = true; });
-  window.addEventListener("pointerup", () => { discoverPressed = false; });
   window.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       openSettings();
@@ -306,6 +304,67 @@ function wireEvents() {
   elements.tagHalfButton.addEventListener("click", () => changeSelectedTags(0.5));
   elements.tagDeleteButton.addEventListener("click", () => changeSelectedTags(0));
   window.addEventListener("beforeunload", finalizeCurrentVideo);
+}
+
+function handlePlayToggleClick() {
+  if (suppressPlayClick) {
+    suppressPlayClick = false;
+    return;
+  }
+  togglePlayback();
+}
+
+function startPlayGesture(event) {
+  const rect = elements.playToggle.getBoundingClientRect();
+  playGesture = {
+    pointerId: event.pointerId,
+    centerX: rect.left + rect.width / 2,
+    centerY: rect.top + rect.height / 2,
+    lastAngle: null,
+    rotation: 0,
+    distance: 0
+  };
+  elements.playToggle.setPointerCapture?.(event.pointerId);
+}
+
+function trackPlayGesture(event) {
+  if (!playGesture || event.pointerId !== playGesture.pointerId) {
+    return;
+  }
+
+  const distanceX = event.clientX - playGesture.centerX;
+  const distanceY = event.clientY - playGesture.centerY;
+  const distance = Math.hypot(distanceX, distanceY);
+  if (distance < 8) {
+    return;
+  }
+
+  const angle = Math.atan2(distanceY, distanceX);
+  if (playGesture.lastAngle !== null) {
+    let delta = angle - playGesture.lastAngle;
+    if (delta > Math.PI) delta -= Math.PI * 2;
+    if (delta < -Math.PI) delta += Math.PI * 2;
+    playGesture.rotation += delta;
+  }
+  playGesture.lastAngle = angle;
+  playGesture.distance += distance;
+}
+
+function finishPlayGesture(event) {
+  if (!playGesture || event.pointerId !== playGesture.pointerId) {
+    return;
+  }
+
+  const completed = playGesture.rotation <= -Math.PI * 3.5 && playGesture.distance >= 80;
+  playGesture = null;
+  if (completed) {
+    suppressPlayClick = true;
+    openSettings();
+  }
+}
+
+function cancelPlayGesture() {
+  playGesture = null;
 }
 
 function renderInterestSetup() {
@@ -367,6 +426,10 @@ function openSettings() {
   if (!canOpenSettings()) {
     return;
   }
+  sendPlayerCommand("pauseVideo");
+  state.isPlaying = false;
+  renderStaticState();
+  saveState();
   closeModals();
   elements.settingsOverlay.classList.remove("hidden");
 }
@@ -484,11 +547,17 @@ function renderTagEditor() {
 
 function changeSelectedTags(multiplier) {
   if (!editingTagInterests) return;
-  for (const input of elements.tagEditList.querySelectorAll("input:checked")) {
-    if (multiplier === 0) delete editingTagInterests[input.value];
-    else editingTagInterests[input.value] *= multiplier;
+  const selectedTags = new Set(
+    [...elements.tagEditList.querySelectorAll("input:checked")].map((input) => input.value)
+  );
+  for (const tag of selectedTags) {
+    if (multiplier === 0) delete editingTagInterests[tag];
+    else editingTagInterests[tag] *= multiplier;
   }
   renderTagEditor();
+  for (const input of elements.tagEditList.querySelectorAll("input")) {
+    input.checked = selectedTags.has(input.value) && multiplier !== 0;
+  }
 }
 
 function saveTagEdits() {
@@ -507,9 +576,9 @@ function confirmDiscardTagEdits() {
 }
 
 function clearAllTags() {
-  if (!window.confirm("タグリストの全消去とは「確認」")) return;
-  if (!window.confirm("全消去すると復元できません「確認」")) return;
-  if (!window.confirm("最終確認「全消去」")) return;
+  if (!window.confirm("タグリストを全て削除します。よく分からなければ「キャンセル」を押してください。")) return;
+  if (!window.confirm("タグリストはこれまであなたが見た動画の傾向を記録した情報です。削除するとあなたの好みに合わせた動画が再生されなくなります。よく分からなければ「キャンセル」を押してください。")) return;
+  if (!window.confirm("削除すると元に戻せません。本当に削除しますか？")) return;
   state.tagInterests = {};
   state.initialSetupCompleted = false;
   returnToSettingsAfterSetup = true;
@@ -569,9 +638,6 @@ function applyVolume() {
 }
 
 async function playMoreVideos() {
-  if (discoverPressed) {
-    return;
-  }
   const sourceVideo = queuedVideo || currentVideo;
   const switchingPreview = isThumbnailVisible();
   if (!sourceVideo?.channelId) {
