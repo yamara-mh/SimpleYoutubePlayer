@@ -572,7 +572,7 @@ function saveTagEdits() {
 }
 
 function confirmDiscardTagEdits() {
-  if (window.confirm("変更を破棄しますか？")) openSettings();
+  if (window.confirm("タグを編集せずに戻りますか？")) openSettings();
 }
 
 function clearAllTags() {
