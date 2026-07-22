@@ -316,6 +316,7 @@ function wireEvents() {
   elements.moreButton.addEventListener("pointerdown", startMoreButtonPress);
   elements.moreButton.addEventListener("pointerup", finishMoreButtonPress);
   elements.moreButton.addEventListener("pointercancel", cancelMoreButtonPress);
+  elements.moreButton.addEventListener("contextmenu", (event) => event.preventDefault());
   elements.discoverButton.addEventListener("click", discoverVideo);
   elements.controlSizeToggle.addEventListener("click", toggleControlSize);
   window.addEventListener("keydown", (event) => {
