@@ -389,7 +389,7 @@ function finishPlayGesture(event) {
     return;
   }
 
-  const completed = playGesture.rotation <= -Math.PI * 3.5 && playGesture.distance >= 80;
+  const completed = playGesture.rotation <= -Math.PI * 1.5 && playGesture.distance >= 80;
   playGesture = null;
   if (completed) {
     suppressPlayClick = true;
