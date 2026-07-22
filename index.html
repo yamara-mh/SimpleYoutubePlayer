@@ -22,9 +22,10 @@
         <h2 id="settingsTitle">設定</h2>
         <div class="settings-actions">
           <button id="historyButton" type="button">視聴履歴</button>
-          <button id="channelHistoryButton" type="button">お気に入りチャンネル一覧</button>
+          <button id="channelHistoryButton" type="button">チャンネル一覧</button>
           <button id="editTagsButton" type="button">タグリストの編集</button>
-          <button id="editChannelsButton" type="button">お気に入りチャンネル一覧の編集</button>
+          <button id="editChannelsButton" type="button">チャンネル一覧の編集</button>
+          <button id="controlSizeToggle" type="button" aria-pressed="false">ボタンサイズ切り替え</button>
           <button id="clearTagsButton" type="button" class="danger-button">タグリストを全消去</button>
           <button id="clearChannelsButton" type="button" class="danger-button">チャンネルリストを全消去</button>
         </div>
@@ -40,7 +41,7 @@
     <div id="channelHistoryOverlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="channelHistoryTitle">
       <section class="modal-panel modal-panel-wide">
         <button id="channelHistoryBackButton" class="modal-back" type="button">戻る</button>
-        <h2 id="channelHistoryTitle">お気に入りチャンネル一覧</h2>
+        <h2 id="channelHistoryTitle">チャンネル一覧</h2>
         <div id="channelHistoryList" class="history-list"></div>
       </section>
     </div>
@@ -59,7 +60,7 @@
           <section class="modal-panel modal-panel-wide">
             <button id="channelEditBackButton" class="modal-back" type="button">戻る</button>
             <button id="channelEditSaveButton" class="modal-save" type="button">保存</button>
-            <h2 id="channelEditTitle">お気に入りチャンネル一覧の編集</h2>
+            <h2 id="channelEditTitle">チャンネル一覧の編集</h2>
             <div id="channelEditList" class="interest-tag-list tag-edit-list"></div>
             <div class="tag-edit-actions">
               <button id="channelDoubleButton" type="button">x2.0</button>
@@ -94,9 +95,6 @@
       </section>
 
       <section class="control-section" aria-label="操作ボタン">
-        <button id="controlSizeToggle" class="control-size-toggle" type="button" aria-pressed="false">
-          ボタンサイズ切り替え
-        </button>
         <div class="controls-row">
           <button id="playToggle" class="control-button primary-button" type="button">
             <span class="control-emoji">▶️</span><span class="control-label">再生</span>
