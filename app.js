@@ -245,6 +245,9 @@ function onYouTubeMessage(event) {
     if (playback.resumePosition > 0) {
       sendPlayerCommand("seekTo", [playback.resumePosition, true]);
     }
+    if (!elements.settingsOverlay.classList.contains("hidden")) {
+      sendPlayerCommand("pauseVideo");
+    }
     return;
   }
 
@@ -444,6 +447,9 @@ function completeInterestSetup() {
 }
 
 function openSettings() {
+  window.clearTimeout(previewTimer);
+  previewTimer = null;
+  queuedVideo = null;
   sendPlayerCommand("pauseVideo");
   state.isPlaying = false;
   renderStaticState();
@@ -1157,6 +1163,9 @@ function queueVideo(video, options) {
 }
 
 function startVideo(video, options) {
+  if (!elements.settingsOverlay.classList.contains("hidden")) {
+    return;
+  }
   queuedVideo = null;
   currentVideo = video;
   playback = createPlaybackState(video);

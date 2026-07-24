@@ -432,14 +432,11 @@ button {
 }
 
 .volume-panel {
-  padding-inline: 0.5rem;
-}
-
-.volume-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   align-items: center;
   gap: 0.35rem;
+  padding-inline: 0.5rem;
   width: 100%;
 }
 
