@@ -415,6 +415,11 @@ button {
   display: block;
 }
 
+.control-label {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
 .primary-button {
   background: linear-gradient(180deg, #ff606d 0%, #e83d56 100%);
   color: #fff;
