@@ -108,8 +108,8 @@ let editingTagInterests = null;
 let editingFavoriteChannels = null;
 let discoveryTurn = state.discoveryTurn || "tag";
 let returnToSettingsAfterSetup = false;
-let playGesture = null;
-let suppressPlayClick = false;
+let moreButtonPress = null;
+let suppressMoreClick = false;
 
 wireEvents();
 renderStaticState();
@@ -304,13 +304,19 @@ function wireEvents() {
   elements.interestSetupButton.addEventListener("click", completeInterestSetup);
   elements.interestTagList.addEventListener("change", updateInterestSetupButton);
   elements.playToggle.addEventListener("click", handlePlayToggleClick);
-  elements.playToggle.addEventListener("pointerdown", startPlayGesture);
-  elements.playToggle.addEventListener("pointermove", trackPlayGesture);
-  elements.playToggle.addEventListener("pointerup", finishPlayGesture);
-  elements.playToggle.addEventListener("pointercancel", cancelPlayGesture);
   elements.volumeDown.addEventListener("click", () => changeVolume(-1));
   elements.volumeUp.addEventListener("click", () => changeVolume(1));
-  elements.moreButton.addEventListener("click", playMoreVideos);
+  elements.moreButton.addEventListener("click", () => {
+    if (suppressMoreClick) {
+      suppressMoreClick = false;
+      return;
+    }
+    playMoreVideos();
+  });
+  elements.moreButton.addEventListener("pointerdown", startMoreButtonPress);
+  elements.moreButton.addEventListener("pointerup", finishMoreButtonPress);
+  elements.moreButton.addEventListener("pointercancel", cancelMoreButtonPress);
+  elements.moreButton.addEventListener("contextmenu", (event) => event.preventDefault());
   elements.discoverButton.addEventListener("click", discoverVideo);
   elements.controlSizeToggle.addEventListener("click", toggleControlSize);
   window.addEventListener("keydown", (event) => {
@@ -341,64 +347,49 @@ function wireEvents() {
 }
 
 function handlePlayToggleClick() {
-  if (suppressPlayClick) {
-    suppressPlayClick = false;
-    return;
-  }
   togglePlayback();
 }
 
-function startPlayGesture(event) {
-  const rect = elements.playToggle.getBoundingClientRect();
-  playGesture = {
-    pointerId: event.pointerId,
-    centerX: rect.left + rect.width / 2,
-    centerY: rect.top + rect.height / 2,
-    lastAngle: null,
-    rotation: 0,
-    distance: 0
+function startMoreButtonPress(event) {
+  if (event.pointerType === "mouse" && event.button !== 0) {
+    return;
+  }
+
+  const pointerId = event.pointerId;
+  moreButtonPress = {
+    pointerId,
+    triggered: false,
+    timer: window.setTimeout(() => {
+      if (!moreButtonPress || moreButtonPress.pointerId !== pointerId) {
+        return;
+      }
+      moreButtonPress.triggered = true;
+      suppressMoreClick = true;
+      openSettings();
+    }, 2000)
   };
-  elements.playToggle.setPointerCapture?.(event.pointerId);
+  elements.moreButton.setPointerCapture?.(pointerId);
 }
 
-function trackPlayGesture(event) {
-  if (!playGesture || event.pointerId !== playGesture.pointerId) {
+function finishMoreButtonPress(event) {
+  if (!moreButtonPress || event.pointerId !== moreButtonPress.pointerId) {
     return;
   }
 
-  const distanceX = event.clientX - playGesture.centerX;
-  const distanceY = event.clientY - playGesture.centerY;
-  const distance = Math.hypot(distanceX, distanceY);
-  if (distance < 8) {
+  window.clearTimeout(moreButtonPress.timer);
+  if (moreButtonPress.triggered) {
+    suppressMoreClick = true;
+  }
+  moreButtonPress = null;
+}
+
+function cancelMoreButtonPress() {
+  if (!moreButtonPress) {
     return;
   }
 
-  const angle = Math.atan2(distanceY, distanceX);
-  if (playGesture.lastAngle !== null) {
-    let delta = angle - playGesture.lastAngle;
-    if (delta > Math.PI) delta -= Math.PI * 2;
-    if (delta < -Math.PI) delta += Math.PI * 2;
-    playGesture.rotation += delta;
-  }
-  playGesture.lastAngle = angle;
-  playGesture.distance += distance;
-}
-
-function finishPlayGesture(event) {
-  if (!playGesture || event.pointerId !== playGesture.pointerId) {
-    return;
-  }
-
-  const completed = playGesture.rotation <= -Math.PI * 1.5 && playGesture.distance >= 80;
-  playGesture = null;
-  if (completed) {
-    suppressPlayClick = true;
-    openSettings();
-  }
-}
-
-function cancelPlayGesture() {
-  playGesture = null;
+  window.clearTimeout(moreButtonPress.timer);
+  moreButtonPress = null;
 }
 
 function renderInterestSetup() {
@@ -452,14 +443,7 @@ function completeInterestSetup() {
   }
 }
 
-function canOpenSettings() {
-  return Boolean(accessToken && state.initialSetupCompleted);
-}
-
 function openSettings() {
-  if (!canOpenSettings()) {
-    return;
-  }
   sendPlayerCommand("pauseVideo");
   state.isPlaying = false;
   renderStaticState();
