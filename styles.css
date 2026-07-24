@@ -464,6 +464,17 @@ button {
   content: " ";
 }
 
+.more-button-label {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  min-width: 0;
+}
+
+.more-button-word {
+  white-space: nowrap;
+}
+
 @media (orientation: landscape) {
   .controls-row {
     grid-template-columns: repeat(4, minmax(0, 1fr));
