@@ -405,7 +405,7 @@ button {
   border-radius: 24px;
   background: #ffffff;
   color: #102038;
-  font-size: clamp(1.5rem, 3vw, 3rem);
+  font-size: clamp(2rem, 4vw, 5rem);
   font-weight: 800;
   box-shadow: 0 14px 30px rgba(16, 38, 66, 0.15);
 }
@@ -443,8 +443,7 @@ button {
 .mini-button {
   border: none;
   border-radius: 18px;
-  min-width: 4rem;
-  min-height: 4rem;
+  min-height: 100%;
   background: #edf3fb;
   font-size: 2rem;
   font-weight: 800;
